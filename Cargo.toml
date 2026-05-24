@@ -16,12 +16,12 @@ readme = "README.md"
 # `dep_name.workspace = true`. Update once, propagate everywhere.
 [workspace.dependencies]
 # Cryptography (RustCrypto stack)
-des = "0.8"
-cbc = "0.1"
-cipher = "0.4"
-hmac = "0.12"
-sha1 = "0.10"
-pbkdf2 = { version = "0.12", default-features = false, features = ["hmac"] }
+des = "0.9"
+cbc = "0.2"
+cipher = "0.5"
+hmac = "0.13"
+sha1 = "0.11"
+pbkdf2 = { version = "0.13", default-features = false, features = ["hmac"] }
 
 # Encoding helpers
 hex = "0.4"
