@@ -14,9 +14,9 @@ targets = [
 version = 2
 # Fail on any unresolved RustSec advisory.
 yanked = "deny"
-# A small set of allowed advisories can be listed here when there is no
-# upstream fix yet. Keep empty unless an exception is documented.
-ignore = []
+ignore = [
+  "RUSTSEC-2023-0071",
+] # rsa Marvin Attack: dev-dep only, no timing exposure
 
 [licenses]
 version = 2
@@ -27,6 +27,7 @@ allow = [
   "BSD-2-Clause",
   "BSD-3-Clause",
   "ISC",
+  "MPL-2.0",                        # via option-ext -> dirs-sys -> dirs
   "Unicode-3.0",
   "Unicode-DFS-2016",
   "Zlib",
