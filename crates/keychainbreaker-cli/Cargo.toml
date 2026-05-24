@@ -1,0 +1,36 @@
+[package]
+name = "keychainbreaker-cli"
+description = "Command-line tool to extract credentials from macOS Keychain files."
+keywords = ["macos", "keychain", "forensics", "cli"]
+categories = ["command-line-utilities", "cryptography"]
+rust-version = "1.78"
+
+version = { workspace = true }
+edition = { workspace = true }
+license = { workspace = true }
+authors = { workspace = true }
+repository = { workspace = true }
+homepage = { workspace = true }
+readme = { workspace = true }
+
+[[bin]]
+name = "keychainbreaker"
+path = "src/main.rs"
+
+[dependencies]
+keychainbreaker = { path = "../keychainbreaker", version = "0.1", features = [
+  "serde",
+] }
+clap = { workspace = true }
+rpassword = { workspace = true }
+serde_json = { workspace = true }
+anyhow = { workspace = true }
+dirs = { workspace = true }
+
+[dev-dependencies]
+assert_cmd = { workspace = true }
+predicates = { workspace = true }
+tempfile = { workspace = true }
+
+[lints]
+workspace = true

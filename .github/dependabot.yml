@@ -1,0 +1,43 @@
+version: 2
+
+updates:
+  - package-ecosystem: cargo
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: "deps"
+    # Bundle RustCrypto updates into a single PR — they tend to release together.
+    groups:
+      rustcrypto:
+        patterns:
+          - des
+          - cbc
+          - cipher
+          - hmac
+          - sha1
+          - pbkdf2
+      time-stack:
+        patterns:
+          - time
+          - chrono
+      serde-stack:
+        patterns:
+          - serde
+          - serde_json
+      cli-stack:
+        patterns:
+          - clap
+          - clap_*
+          - anyhow
+          - rpassword
+          - dirs
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly
+    commit-message:
+      prefix: "ci"

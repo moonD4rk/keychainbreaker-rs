@@ -1,0 +1,116 @@
+[workspace]
+resolver = "2"
+members = ["crates/*"]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+license = "Apache-2.0"
+authors = ["moonD4rk"]
+repository = "https://github.com/moonD4rk/keychainbreaker-rs"
+homepage = "https://github.com/moonD4rk/keychainbreaker-rs"
+documentation = "https://docs.rs/keychainbreaker"
+readme = "README.md"
+
+# Dependency versions are pinned here and inherited by each member crate via
+# `dep_name.workspace = true`. Update once, propagate everywhere.
+[workspace.dependencies]
+# Cryptography (RustCrypto stack)
+des = "0.8"
+cbc = "0.1"
+cipher = "0.4"
+hmac = "0.12"
+sha1 = "0.10"
+pbkdf2 = { version = "0.12", default-features = false, features = ["hmac"] }
+
+# Encoding helpers
+hex = "0.4"
+base64 = "0.22"
+
+# Error derive
+thiserror = "1"
+
+# Time formatting (RFC 3339 with serde-well-known)
+time = { version = "0.3", features = [
+  "formatting",
+  "parsing",
+  "macros",
+  "serde-well-known",
+] }
+
+# Optional serde support (library) and JSON output (CLI)
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+# CLI-only
+clap = { version = "4", features = ["derive", "wrap_help"] }
+rpassword = "7"
+anyhow = "1"
+dirs = "5"
+
+# Dev / test
+assert_cmd = "2"
+predicates = "3"
+tempfile = "3"
+rsa = "0.9"
+x509-parser = "0.16"
+
+# Lints applied to every member crate (opt-in via `[lints] workspace = true`).
+# Strict baseline: `clippy::all` denied, `pedantic`/`nursery`/`cargo` warned,
+# CI treats warnings as errors. Test code carries `#![allow(...)]` overrides
+# at the file top (unwrap/expect/panic) per project convention.
+[workspace.lints.rust]
+unsafe_code = "forbid"
+unused_must_use = "deny"
+missing_docs = "warn"
+missing_debug_implementations = "warn"
+rust_2018_idioms = { level = "deny", priority = -1 }
+nonstandard_style = { level = "deny", priority = -1 }
+future_incompatible = { level = "deny", priority = -1 }
+let_underscore = { level = "warn", priority = -1 }
+unreachable_pub = "warn"
+trivial_casts = "warn"
+trivial_numeric_casts = "warn"
+unused_qualifications = "warn"
+unused_lifetimes = "warn"
+unused_extern_crates = "warn"
+unused_import_braces = "warn"
+elided_lifetimes_in_paths = "warn"
+single_use_lifetimes = "warn"
+unused_results = "warn"
+
+[workspace.lints.clippy]
+all = { level = "deny", priority = -1 }
+pedantic = { level = "warn", priority = -1 }
+nursery = { level = "warn", priority = -1 }
+cargo = { level = "warn", priority = -1 }
+
+# Elevations above clippy::all
+unwrap_used = "deny"
+expect_used = "deny"
+panic = "deny"
+todo = "deny"
+unimplemented = "deny"
+dbg_macro = "deny"
+print_stdout = "deny"
+print_stderr = "deny"
+unreachable = "deny"
+mem_forget = "deny"
+get_unwrap = "deny"
+exit = "warn"
+indexing_slicing = "warn"
+
+# Pedantic / cargo lints that are too noisy in practice. Documented allows
+# rather than silent skips so future contributors see them.
+module_name_repetitions = "allow" # nested types like keychain::Keychain are fine
+must_use_candidate = "allow"      # noisy on plain data structs
+missing_errors_doc = "allow"      # add once API surface stabilizes
+missing_panics_doc = "allow"      # add once API surface stabilizes
+multiple_crate_versions = "allow" # transitive deps frequently disagree
+
+# release profile: same as Cargo default, but pinned for reproducibility
+[profile.release]
+opt-level = 3
+lto = "thin"
+codegen-units = 1
+strip = "symbols"
