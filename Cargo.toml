@@ -16,19 +16,19 @@ readme = "README.md"
 # `dep_name.workspace = true`. Update once, propagate everywhere.
 [workspace.dependencies]
 # Cryptography (RustCrypto stack)
-des = "0.8"
-cbc = "0.1"
-cipher = "0.4"
-hmac = "0.12"
-sha1 = "0.10"
-pbkdf2 = { version = "0.12", default-features = false, features = ["hmac"] }
+des = "0.9"
+cbc = "0.2"
+cipher = "0.5"
+hmac = "0.13"
+sha1 = "0.11"
+pbkdf2 = { version = "0.13", default-features = false, features = ["hmac"] }
 
 # Encoding helpers
 hex = "0.4"
 base64 = "0.22"
 
 # Error derive
-thiserror = "1"
+thiserror = "2"
 
 # Time formatting (RFC 3339 with serde-well-known)
 time = { version = "0.3", features = [
@@ -46,14 +46,14 @@ serde_json = "1"
 clap = { version = "4", features = ["derive", "wrap_help"] }
 rpassword = "7"
 anyhow = "1"
-dirs = "5"
+dirs = "6"
 
 # Dev / test
 assert_cmd = "2"
 predicates = "3"
 tempfile = "3"
 rsa = "0.9"
-x509-parser = "0.16"
+x509-parser = "0.18"
 
 # Lints applied to every member crate (opt-in via `[lints] workspace = true`).
 # Strict baseline: `clippy::all` denied, `pedantic`/`nursery`/`cargo` warned,

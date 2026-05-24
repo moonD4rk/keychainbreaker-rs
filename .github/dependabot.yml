@@ -41,3 +41,10 @@ updates:
       interval: monthly
     commit-message:
       prefix: "ci"
+    ignore:
+      # `dtolnay/rust-toolchain` uses Rust version strings as refs
+      # (e.g. `@1.74` means "install Rust 1.74", not "action v1.74").
+      # Dependabot misreads these as semver action bumps and proposes
+      # nonsensical updates like `@1.74` -> `@1.100`. Ignore version
+      # updates for this action.
+      - dependency-name: "dtolnay/rust-toolchain"
