@@ -62,19 +62,6 @@ cargo test --workspace --all-features
 cargo install --path crates/keychainbreaker-cli
 ```
 
-## Documentation
-
-| Where | What |
-|---|---|
-| [`rfcs/001-rust-port-overview.md`](rfcs/001-rust-port-overview.md) | Migration motivation, scope, workspace layout, MSRV |
-| [`rfcs/002-library-api.md`](rfcs/002-library-api.md) | Library public surface, error model, ownership |
-| [`rfcs/003-cli-design.md`](rfcs/003-cli-design.md) | CLI subcommands, flags, output format |
-| [`rfcs/004-testing-and-verification.md`](rfcs/004-testing-and-verification.md) | Test fixtures, integration tests, Go-parity verification |
-| [`rfcs/005-keychain-encryption.md`](rfcs/005-keychain-encryption.md) | Encryption algorithm spec (copied from Go RFC 001) |
-| [`rfcs/006-macos-26-keychain-change.md`](rfcs/006-macos-26-keychain-change.md) | macOS 26.4 v2 keychain background |
-| [`CONTRIBUTING.md`](CONTRIBUTING.md) | How to propose changes |
-| [`CLAUDE.md`](CLAUDE.md) | Project-specific Claude instructions (also useful as a quick reference for humans) |
-
 ## Ethics and Authorization
 
 This tool is for authorized security testing, digital forensics, and credential recovery on systems you own or have explicit permission to access. Use against systems you do not own is illegal in most jurisdictions and is not what this project is for.
