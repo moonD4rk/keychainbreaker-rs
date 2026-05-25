@@ -18,6 +18,9 @@
 !/.gitignore
 !/LICENSE
 
+# --- Per-developer local notes (override the `!*.md` allow above)
+/CLAUDE.local.md
+
 # --- Build artifacts (override the extension allows above)
 target/
 
