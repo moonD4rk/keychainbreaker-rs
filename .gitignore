@@ -10,6 +10,8 @@
 !*.yml
 !*.yaml
 !*.lock
+# Test fixtures (binary). Checked in under crates/*/tests/data/.
+!*.keychain-db
 
 # --- Root files without a recognized extension (root-only via leading `/`)
 !/.editorconfig
