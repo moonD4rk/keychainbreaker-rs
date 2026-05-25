@@ -102,11 +102,14 @@ indexing_slicing = "warn"
 
 # Pedantic / cargo lints that are too noisy in practice. Documented allows
 # rather than silent skips so future contributors see them.
-module_name_repetitions = "allow" # nested types like keychain::Keychain are fine
-must_use_candidate = "allow"      # noisy on plain data structs
-missing_errors_doc = "allow"      # add once API surface stabilizes
-missing_panics_doc = "allow"      # add once API surface stabilizes
-multiple_crate_versions = "allow" # transitive deps frequently disagree
+module_name_repetitions = "allow"    # nested types like keychain::Keychain are fine
+must_use_candidate = "allow"         # noisy on plain data structs
+missing_errors_doc = "allow"         # add once API surface stabilizes
+missing_panics_doc = "allow"         # add once API surface stabilizes
+multiple_crate_versions = "allow"    # transitive deps frequently disagree
+doc_markdown = "allow"               # false positives on acronyms (FourCC, PKCS, RFC nnnn)
+trivially_copy_pass_by_ref = "allow" # serde skip_serializing_if requires &T
+redundant_pub_crate = "allow"        # crate-wide visibility needed by M2/M3 even if not now
 
 # release profile: same as Cargo default, but pinned for reproducibility
 [profile.release]

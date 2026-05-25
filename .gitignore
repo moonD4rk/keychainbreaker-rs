@@ -10,11 +10,16 @@
 !*.yml
 !*.yaml
 !*.lock
+# Test fixtures (binary). Checked in under crates/*/tests/data/.
+!*.keychain-db
 
 # --- Root files without a recognized extension (root-only via leading `/`)
 !/.editorconfig
 !/.gitignore
 !/LICENSE
+
+# --- Per-developer local notes (override the `!*.md` allow above)
+/CLAUDE.local.md
 
 # --- Build artifacts (override the extension allows above)
 target/
