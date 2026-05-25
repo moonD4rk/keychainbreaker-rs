@@ -78,8 +78,11 @@ pub(crate) fn keyblob_decrypt(blob: &[u8], iv: &[u8], db_key: &[u8]) -> Result<V
     }
     let final_plain = kc_decrypt(db_key, iv, &rev)
         .map_err(|e| Error::ParseFailed(format!("key unwrap stage 2: {e}")))?;
-    if final_plain.len() < 28 {
-        return Err(Error::ParseFailed("unwrapped key too short".into()));
+    if final_plain.len() != 28 {
+        return Err(Error::ParseFailed(format!(
+            "invalid unwrapped key length: got {}, want 28",
+            final_plain.len()
+        )));
     }
     Ok(final_plain[4..28].to_vec())
 }
@@ -201,5 +204,47 @@ mod tests {
         assert_eq!(MAGIC_CMS_IV.len(), BLOCK_SIZE);
         assert_eq!(MAGIC_CMS_IV[0], 0x4a);
         assert_eq!(MAGIC_CMS_IV[7], 0x05);
+    }
+
+    /// Stage 2 of [`keyblob_decrypt`] must yield exactly 28 bytes (4-byte
+    /// header + 24-byte key). This crafts a blob whose stage-2 plaintext is
+    /// 24 bytes and asserts the strict length check rejects it.
+    #[test]
+    fn keyblob_decrypt_rejects_unwrapped_key_with_wrong_length() {
+        let db_key = [0xAB_u8; KEY_LENGTH];
+        let iv = [0x12_u8; BLOCK_SIZE];
+
+        let stage2_plain = [0x55_u8; 24];
+        let mut s2_buf = [0_u8; 32];
+        s2_buf[..24].copy_from_slice(&stage2_plain);
+        let stage2_ct = TripleDesCbcEnc::new_from_slices(&db_key, &iv)
+            .unwrap()
+            .encrypt_padded::<Pkcs7Pad>(&mut s2_buf, 24)
+            .unwrap()
+            .to_vec();
+        assert_eq!(stage2_ct.len(), 32);
+
+        let mut stage1_plain = [0_u8; 32];
+        for (i, byte) in stage2_ct.iter().enumerate() {
+            stage1_plain[31 - i] = *byte;
+        }
+        let mut s1_buf = [0_u8; 40];
+        s1_buf[..32].copy_from_slice(&stage1_plain);
+        let blob = TripleDesCbcEnc::new_from_slices(&db_key, &MAGIC_CMS_IV)
+            .unwrap()
+            .encrypt_padded::<Pkcs7Pad>(&mut s1_buf, 32)
+            .unwrap()
+            .to_vec();
+
+        let err = keyblob_decrypt(&blob, &iv, &db_key).unwrap_err();
+        match err {
+            Error::ParseFailed(msg) => {
+                assert!(
+                    msg.contains("invalid unwrapped key length"),
+                    "unexpected message: {msg}"
+                );
+            }
+            other => panic!("expected ParseFailed, got {other:?}"),
+        }
     }
 }
