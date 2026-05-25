@@ -2,14 +2,20 @@
 //!
 //! This crate is a Rust port of the Go library at
 //! <https://github.com/moond4rk/keychainbreaker>. See the design RFCs in
-//! `rfcs/` at the repository root:
+//! `rfcs/` at the repository root for motivation, API design, CLI design,
+//! testing strategy, and the encryption algorithm spec.
 //!
-//! - `rfcs/001-rust-port-overview.md` — motivation, scope, crate layout.
-//! - `rfcs/002-library-api.md` — public surface (this crate).
-//! - `rfcs/003-cli-design.md` — CLI behavior (`keychainbreaker-cli`).
-//! - `rfcs/004-testing-and-verification.md` — test strategy.
-//! - `rfcs/005-keychain-encryption.md` — algorithm spec (copied from Go).
-//! - `rfcs/006-macos-26-keychain-change.md` — macOS 26 background.
+//! ## Current state — milestone M1
 //!
-//! The implementation lands in phased milestones. This file is currently a
-//! skeleton; see RFC 001 § 10 for the rollout plan.
+//! M1 ships the foundational pieces: typed errors, the logger trait, the
+//! public record types, and the cryptographic primitives. The high-level
+//! `Keychain` open / unlock / extraction surface is added in M3.
+
+mod crypto;
+mod error;
+mod logger;
+mod types;
+
+pub use crate::error::{Error, Result};
+pub use crate::logger::{Logger, NopLogger};
+pub use crate::types::{Certificate, GenericPassword, InternetPassword, PrivateKey};
