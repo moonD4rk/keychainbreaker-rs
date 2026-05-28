@@ -598,6 +598,7 @@ dependencies = [
  "keychainbreaker",
  "predicates",
  "rpassword",
+ "serde",
  "serde_json",
  "tempfile",
 ]

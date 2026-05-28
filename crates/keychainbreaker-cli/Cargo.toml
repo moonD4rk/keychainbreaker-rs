@@ -23,6 +23,7 @@ keychainbreaker = { path = "../keychainbreaker", version = "0.1", features = [
 ] }
 clap = { workspace = true }
 rpassword = { workspace = true }
+serde = { workspace = true }
 serde_json = { workspace = true }
 anyhow = { workspace = true }
 dirs = { workspace = true }
