@@ -5,15 +5,21 @@
 //! `rfcs/` at the repository root for motivation, API design, CLI design,
 //! testing strategy, and the encryption algorithm spec.
 //!
-//! ## Current state — milestone M1
+//! ## Current state — milestone M2
 //!
-//! M1 ships the foundational pieces: typed errors, the logger trait, the
-//! public record types, and the cryptographic primitives. The high-level
-//! `Keychain` open / unlock / extraction surface is added in M3.
+//! M2 ships the internal parsing layer on top of the M1 primitives: binary
+//! readers for the keychain file format, the schema-driven `Record`
+//! abstraction, and dynamic schema discovery. None of this is exposed
+//! publicly — the high-level `Keychain` open / unlock / extraction surface
+//! is added in M3.
 
 mod crypto;
 mod error;
 mod logger;
+mod parse;
+mod record;
+mod schema;
+mod tables;
 mod types;
 
 pub use crate::error::{Error, Result};
