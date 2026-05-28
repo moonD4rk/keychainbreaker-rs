@@ -6,11 +6,6 @@
 //! `errors.New("file too small for header")`-style strings the Go code
 //! uses.
 
-// All readers here are `pub(crate)` consumers of M3's open/unlock
-// pipeline. Until M3 lands they are exercised only by the in-module
-// tests, so non-test builds see every symbol as unused.
-#![allow(dead_code)]
-
 use crate::error::{Error, Result};
 
 /// Fixed-format byte lengths (`headerSize` and friends in `parse.go`).
@@ -87,8 +82,10 @@ pub(crate) fn read_array<const N: usize>(
 pub(crate) struct Header {
     pub(crate) signature: [u8; 4],
     pub(crate) version: u32,
+    #[allow(dead_code)] // present for parity with the file format; tests assert against it
     pub(crate) inner_size: u32,
     pub(crate) schema_off: u32,
+    #[allow(dead_code)] // unused by the read-only parser; preserved for fidelity
     pub(crate) auth_off: u32,
 }
 
@@ -109,6 +106,7 @@ pub(crate) fn parse_header(buf: &[u8]) -> Result<Header> {
 /// the file header.
 #[derive(Debug, Clone)]
 pub(crate) struct SchemaIndex {
+    #[allow(dead_code)] // self-reported schema size; preserved for fidelity
     pub(crate) schema_size: u32,
     pub(crate) table_offsets: Vec<u32>,
 }
@@ -135,6 +133,7 @@ pub(crate) fn parse_schema(buf: &[u8], offset: u32) -> Result<SchemaIndex> {
 #[derive(Debug, Clone)]
 pub(crate) struct TableHeader {
     pub(crate) table_id: u32,
+    #[allow(dead_code)] // self-reported count; `record_offsets.len()` is the live value
     pub(crate) record_count: u32,
     pub(crate) record_offsets: Vec<u32>,
     /// Absolute offset of this table in the keychain buffer.

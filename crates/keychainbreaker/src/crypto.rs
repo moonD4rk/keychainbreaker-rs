@@ -5,12 +5,10 @@
 //!
 //! See `rfcs/005-keychain-encryption.md` for the algorithm details.
 
-// M1 only ships the primitives + unit-test coverage. Callers are wired in
-// M2 (parser) and M3 (unlock/extract); until then non-test builds see
-// every item here as unused, and bounds-checked indexing operations are
-// flagged by `clippy::indexing_slicing`. Both allows are removed once
-// callers exist and the indexing is moved behind a Record abstraction.
-#![allow(dead_code, clippy::indexing_slicing)]
+// The reverse-buffer loop in `keyblob_decrypt` indexes into bounds-checked
+// fixed-size arrays where the bounds are obvious by inspection; the lint
+// can't see that, so allow it here only.
+#![allow(clippy::indexing_slicing)]
 
 use cbc::cipher::{block_padding::Pkcs7, BlockModeDecrypt, KeyIvInit};
 use cbc::Decryptor;
