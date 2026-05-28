@@ -9,10 +9,6 @@
 //! value for this attribute"; any non-zero value `n` resolves to the
 //! byte offset `n - 1` within the record buffer.
 
-// `Record` and its readers are consumed by the M3 extraction pipeline;
-// until then non-test builds see them as unused.
-#![allow(dead_code)]
-
 use time::macros::format_description;
 use time::{OffsetDateTime, PrimitiveDateTime};
 

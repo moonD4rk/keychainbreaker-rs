@@ -9,10 +9,6 @@
 //! are hardcoded here because they are needed to parse the discovery
 //! records.
 
-// Discovery results are consumed by M3's extraction pipeline; until then
-// non-test builds see every symbol here as unused.
-#![allow(dead_code)]
-
 use std::collections::HashMap;
 
 use crate::error::{Error, Result};
@@ -20,17 +16,25 @@ use crate::parse::TableHeader;
 use crate::record::parse_record;
 use crate::tables;
 
-/// Attribute format codes from Apple's CSSM framework.
+/// Attribute format codes from Apple's CSSM framework. Only `UINT32` is
+/// load-bearing today (used by the bootstrap schemas); the rest are kept
+/// for fidelity and as documentation of the on-disk encoding.
+#[allow(dead_code)]
 pub(crate) const ATTR_FORMAT_STRING: u32 = 0;
+#[allow(dead_code)]
 pub(crate) const ATTR_FORMAT_SINT32: u32 = 1;
 pub(crate) const ATTR_FORMAT_UINT32: u32 = 2;
+#[allow(dead_code)]
 pub(crate) const ATTR_FORMAT_TIME_DATE: u32 = 5;
+#[allow(dead_code)]
 pub(crate) const ATTR_FORMAT_BLOB: u32 = 6;
+#[allow(dead_code)]
 pub(crate) const ATTR_FORMAT_MULTI_UINT: u32 = 7;
 
 #[derive(Debug, Clone)]
 pub(crate) struct AttrDef {
     pub(crate) name: String,
+    #[allow(dead_code)] // discovered for fidelity; the readers infer the format from the call site
     pub(crate) format: u32,
 }
 
@@ -39,6 +43,7 @@ pub(crate) struct AttrDef {
 /// lazy-init pattern Go uses.
 #[derive(Debug, Clone)]
 pub(crate) struct TableSchema {
+    #[allow(dead_code)] // identifying tag; consumers look schemas up by table id externally
     pub(crate) table_id: u32,
     pub(crate) attrs: Vec<AttrDef>,
     indexes: HashMap<String, usize>,

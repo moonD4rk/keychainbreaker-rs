@@ -6,22 +6,23 @@
 //! (e.g. `svce`, `acct`) — they are not Rust identifiers because the keychain
 //! file format stores them as four-byte ASCII tags inside record headers.
 
-// M2 introduces the full constant set; M3 wires the per-record-type
-// attribute names into the extraction pipeline. Until then the
-// extraction-side constants look unused in non-test builds.
-#![allow(dead_code)]
-
-// Record-type table identifiers.
+// Record-type table identifiers. The extractor only walks a subset;
+// the rest are kept so a future feature (e.g. PublicKey or
+// AppleSharePassword surfacing) doesn't need to rediscover the values.
 
 pub(crate) const TABLE_SCHEMA_INFO: u32 = 0x0000_0000;
+#[allow(dead_code)]
 pub(crate) const TABLE_SCHEMA_INDEXES: u32 = 0x0000_0001;
 pub(crate) const TABLE_SCHEMA_ATTRIBUTES: u32 = 0x0000_0002;
+#[allow(dead_code)]
 pub(crate) const TABLE_SCHEMA_PARSING_MODULE: u32 = 0x0000_0003;
+#[allow(dead_code)]
 pub(crate) const TABLE_PUBLIC_KEY: u32 = 0x0000_000F;
 pub(crate) const TABLE_PRIVATE_KEY: u32 = 0x0000_0010;
 pub(crate) const TABLE_SYMMETRIC_KEY: u32 = 0x0000_0011;
 pub(crate) const TABLE_GENERIC_PASSWORD: u32 = 0x8000_0000;
 pub(crate) const TABLE_INTERNET_PASSWORD: u32 = 0x8000_0001;
+#[allow(dead_code)]
 pub(crate) const TABLE_APPLE_SHARE_PASSWORD: u32 = 0x8000_0002;
 pub(crate) const TABLE_X509_CERTIFICATE: u32 = 0x8000_1000;
 pub(crate) const TABLE_METADATA: u32 = 0x8000_8000;
