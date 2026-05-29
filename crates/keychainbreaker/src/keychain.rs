@@ -43,7 +43,7 @@ pub(crate) enum State {
 /// A parsed (and possibly unlocked) macOS keychain database.
 ///
 /// `Keychain` owns the file bytes, the parsed table catalogue, the discovered
-/// schema, and its unlock [`State`]. Extraction methods take `&self` because
+/// schema, and its unlock state. Extraction methods take `&self` because
 /// every state mutation happens during [`Keychain::unlock`] /
 /// [`Keychain::try_unlock`].
 pub struct Keychain {

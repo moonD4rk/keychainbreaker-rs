@@ -45,7 +45,7 @@ impl core::fmt::Debug for Credential {
 
 impl Keychain {
     /// Decrypt the keychain using `cred`. On failure the keychain is left
-    /// [`State::Locked`], so extraction methods return [`Error::Locked`].
+    /// locked, so extraction methods return [`Error::Locked`].
     ///
     /// Takes the credential by value so it is consumed (and dropped) by the
     /// unlock attempt rather than lingering at the call site.
@@ -68,7 +68,7 @@ impl Keychain {
     ///
     /// - `None` enables partial mode without attempting decryption.
     /// - `Some(cred)` attempts a full unlock; a wrong password / key leaves the
-    ///   keychain in [`State::Partial`] and returns `Ok(())` (check
+    ///   keychain in partial mode and returns `Ok(())` (check
     ///   [`Self::unlocked`] to tell full from partial). Only a structural
     ///   problem (e.g. a corrupt table) returns `Err`.
     pub fn try_unlock(&mut self, cred: Option<Credential>) -> Result<()> {
@@ -101,7 +101,7 @@ impl Keychain {
 
     /// Derive the master key, unwrap the database key, and build the per-record
     /// key list. Pure with respect to `self` — the caller installs the result
-    /// into [`State`].
+    /// into the unlocked state.
     fn compute_keys(&self, cred: &Credential) -> Result<(Vec<u8>, KeyList)> {
         let master_key = derive_master_key(cred, &self.db_blob.salt);
         self.logger.info(
