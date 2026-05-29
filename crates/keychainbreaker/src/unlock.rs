@@ -104,19 +104,44 @@ impl Keychain {
     /// into the unlocked state.
     fn compute_keys(&self, cred: &Credential) -> Result<(Vec<u8>, KeyList)> {
         let master_key = derive_master_key(cred, &self.db_blob.salt);
-        self.logger.info(
-            "master key derived",
-            &[
-                ("method", &derive_method(cred)),
-                ("keyLen", &master_key.len()),
-            ],
-        );
+        let method = derive_method(cred);
+        let key_len = master_key.len();
+        match cred {
+            Credential::Password(_) => {
+                let iterations = crate::crypto::PBKDF2_ITER;
+                self.logger.info(
+                    "master key derived",
+                    &[
+                        ("method", &method),
+                        ("iterations", &iterations),
+                        ("keyLen", &key_len),
+                    ],
+                );
+            }
+            Credential::Key(_) => self.logger.info(
+                "master key derived",
+                &[("method", &method), ("keyLen", &key_len)],
+            ),
+        }
 
-        let db_key = find_wrapping_key(self, &master_key)?;
+        let db_key = match find_wrapping_key(self, &master_key) {
+            Ok(db_key) => db_key,
+            Err(e) => {
+                self.logger.error("decrypt DB key failed", &[("error", &e)]);
+                return Err(e);
+            }
+        };
         self.logger
             .info("DB key decrypted", &[("keyLen", &db_key.len())]);
 
-        let key_list = generate_key_list(self, &db_key)?;
+        let key_list = match generate_key_list(self, &db_key) {
+            Ok(key_list) => key_list,
+            Err(e) => {
+                self.logger
+                    .error("generate key list failed", &[("error", &e)]);
+                return Err(e);
+            }
+        };
         self.logger
             .info("key list generated", &[("keyCount", &key_list.len())]);
         Ok((db_key, key_list))
