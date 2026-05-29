@@ -1,9 +1,7 @@
 //! Cryptographic primitives for keychain decryption.
 //!
 //! All primitives are crate-private and exposed only through the public
-//! `Keychain` unlock and extraction methods (added in later milestones).
-//!
-//! See `rfcs/005-keychain-encryption.md` for the algorithm details.
+//! `Keychain` unlock and extraction methods.
 
 // The reverse-buffer loop in `keyblob_decrypt` indexes into bounds-checked
 // fixed-size arrays where the bounds are obvious by inspection; the lint
@@ -27,7 +25,7 @@ pub(crate) const KEY_LENGTH: usize = 24;
 pub(crate) const PBKDF2_ITER: u32 = 1000;
 
 /// Magic IV used by Apple as the outer wrap IV in the RFC 3217 two-stage
-/// key unwrap. See `rfcs/005-keychain-encryption.md` § "Key Wrap Algorithm".
+/// key unwrap.
 pub(crate) const MAGIC_CMS_IV: [u8; 8] = [0x4a, 0xdd, 0xa2, 0x2c, 0x79, 0xe8, 0x21, 0x05];
 
 type TripleDesCbcDec = Decryptor<TdesEde3>;

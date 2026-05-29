@@ -9,9 +9,6 @@
 use std::collections::HashMap;
 use std::fmt;
 
-use base64::engine::general_purpose::STANDARD as BASE64_STANDARD;
-use base64::Engine;
-
 use crate::crypto::{kc_decrypt, private_key_decrypt};
 use crate::error::{Error, Result};
 use crate::logger::Logger;
@@ -30,12 +27,24 @@ pub(crate) const PRIVATE_KEY_NAME_LEN: usize = 12;
 /// Index entry size in the key list: 4-byte SSGP magic + 16-byte label.
 pub(crate) const KEY_LIST_INDEX_LEN: usize = 20;
 
+/// Per-record decryption keys, indexed by SSGP magic + label.
+pub(crate) type KeyList = HashMap<Vec<u8>, Vec<u8>>;
+
+/// Unlock state of a [`Keychain`].
+pub(crate) enum State {
+    /// No unlock attempted, or a strict [`Keychain::unlock`] failed.
+    Locked,
+    /// Metadata-only extraction is permitted; no database key is available.
+    Partial,
+    /// Fully unlocked: the database key and per-record key list are resident.
+    Unlocked { db_key: Vec<u8>, key_list: KeyList },
+}
+
 /// A parsed (and possibly unlocked) macOS keychain database.
 ///
-/// `Keychain` owns the file bytes, the parsed table catalogue, the
-/// discovered schema, and — once unlocked — the database key and the
-/// per-record key list. Extraction methods take `&self` because every
-/// state mutation happens during [`Keychain::unlock`] /
+/// `Keychain` owns the file bytes, the parsed table catalogue, the discovered
+/// schema, and its unlock state. Extraction methods take `&self` because
+/// every state mutation happens during [`Keychain::unlock`] /
 /// [`Keychain::try_unlock`].
 pub struct Keychain {
     pub(crate) buf: Vec<u8>,
@@ -43,17 +52,15 @@ pub struct Keychain {
     pub(crate) tables_map: HashMap<u32, TableHeader>,
     pub(crate) db_blob: DbBlob,
     pub(crate) blob_base_addr: usize,
-    pub(crate) db_key: Option<Vec<u8>>,
-    pub(crate) key_list: HashMap<Vec<u8>, Vec<u8>>,
-    pub(crate) allow_partial: bool,
+    pub(crate) state: State,
     pub(crate) logger: Box<dyn Logger>,
 }
 
 impl fmt::Debug for Keychain {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("Keychain")
-            .field("unlocked", &self.db_key.is_some())
-            .field("allow_partial", &self.allow_partial)
+            .field("unlocked", &self.unlocked())
+            .field("partial", &matches!(self.state, State::Partial))
             .field("tables", &self.tables_map.len())
             .field("buf_len", &self.buf.len())
             .finish_non_exhaustive()
@@ -75,9 +82,7 @@ impl Keychain {
             tables_map,
             db_blob,
             blob_base_addr,
-            db_key: None,
-            key_list: HashMap::new(),
-            allow_partial: false,
+            state: State::Locked,
             logger,
         }
     }
@@ -92,10 +97,10 @@ impl Keychain {
         let records = self.iterate_records(tables::TABLE_GENERIC_PASSWORD)?;
         let mut out = Vec::with_capacity(records.len());
         for rec in &records {
-            let password = self.decrypt_blob(rec).ok();
-            let mut gp = GenericPassword {
+            out.push(GenericPassword {
                 service: rec.read_string_attr(tables::ATTR_SERVICE_NAME),
                 account: rec.read_string_attr(tables::ATTR_ACCOUNT_NAME),
+                password: self.decrypt_blob(rec).ok(),
                 description: rec.read_string_attr(tables::ATTR_DESCRIPTION),
                 comment: rec.read_string_attr(tables::ATTR_COMMENT),
                 creator: rec.read_fourcc_attr(tables::ATTR_CREATOR),
@@ -104,15 +109,7 @@ impl Keychain {
                 alias: rec.read_string_attr(tables::ATTR_ALIAS),
                 created: rec.read_time_attr(tables::ATTR_CREATED),
                 modified: rec.read_time_attr(tables::ATTR_MODIFIED),
-                ..GenericPassword::default()
-            };
-            if let Some(bytes) = password {
-                gp.plain_password = String::from_utf8_lossy(&bytes).into_owned();
-                gp.hex_password = hex::encode(&bytes);
-                gp.base64_password = BASE64_STANDARD.encode(&bytes);
-                gp.password = Some(bytes);
-            }
-            out.push(gp);
+            });
         }
         Ok(out)
     }
@@ -123,10 +120,10 @@ impl Keychain {
         let records = self.iterate_records(tables::TABLE_INTERNET_PASSWORD)?;
         let mut out = Vec::with_capacity(records.len());
         for rec in &records {
-            let password = self.decrypt_blob(rec).ok();
-            let mut ip = InternetPassword {
+            out.push(InternetPassword {
                 server: rec.read_string_attr(tables::ATTR_SERVER),
                 account: rec.read_string_attr(tables::ATTR_ACCOUNT_NAME),
+                password: self.decrypt_blob(rec).ok(),
                 security_domain: rec.read_string_attr(tables::ATTR_SECURITY_DOMAIN),
                 protocol: rec.read_fourcc_attr(tables::ATTR_PROTOCOL),
                 auth_type: rec.read_fourcc_attr(tables::ATTR_AUTH_TYPE),
@@ -140,15 +137,7 @@ impl Keychain {
                 alias: rec.read_string_attr(tables::ATTR_ALIAS),
                 created: rec.read_time_attr(tables::ATTR_CREATED),
                 modified: rec.read_time_attr(tables::ATTR_MODIFIED),
-                ..InternetPassword::default()
-            };
-            if let Some(bytes) = password {
-                ip.plain_password = String::from_utf8_lossy(&bytes).into_owned();
-                ip.hex_password = hex::encode(&bytes);
-                ip.base64_password = BASE64_STANDARD.encode(&bytes);
-                ip.password = Some(bytes);
-            }
-            out.push(ip);
+            });
         }
         Ok(out)
     }
@@ -164,7 +153,7 @@ impl Keychain {
         for rec in &records {
             match self.decrypt_private_key(rec) {
                 Ok(pk) => out.push(pk),
-                Err(_) if self.allow_partial => out.push(PrivateKey {
+                Err(_) if matches!(self.state, State::Partial) => out.push(PrivateKey {
                     print_name: rec.read_string_attr(tables::ATTR_PRINT_NAME),
                     label: rec.read_string_attr(tables::ATTR_LABEL),
                     key_class: rec.read_u32_attr(tables::ATTR_KEY_CLASS),
@@ -185,23 +174,14 @@ impl Keychain {
         let records = self.iterate_records(tables::TABLE_X509_CERTIFICATE)?;
         let mut out = Vec::with_capacity(records.len());
         for rec in &records {
-            let data = rec.blob_data.to_vec();
-            let subject = rec.read_blob_attr(tables::ATTR_SUBJECT);
-            let issuer = rec.read_blob_attr(tables::ATTR_ISSUER);
-            let serial = rec.read_blob_attr(tables::ATTR_SERIAL);
             out.push(Certificate {
-                data_hex: hex::encode(&data),
-                data_base64: BASE64_STANDARD.encode(&data),
-                data,
+                data: rec.blob_data.to_vec(),
                 type_: rec.read_u32_attr(tables::ATTR_CERT_TYPE),
                 encoding: rec.read_u32_attr(tables::ATTR_CERT_ENCODING),
                 print_name: rec.read_string_attr(tables::ATTR_CERT_LABEL),
-                subject_hex: hex::encode(&subject),
-                subject,
-                issuer_hex: hex::encode(&issuer),
-                issuer,
-                serial_hex: hex::encode(&serial),
-                serial,
+                subject: rec.read_blob_attr(tables::ATTR_SUBJECT),
+                issuer: rec.read_blob_attr(tables::ATTR_ISSUER),
+                serial: rec.read_blob_attr(tables::ATTR_SERIAL),
             });
         }
         Ok(out)
@@ -234,7 +214,7 @@ impl Keychain {
     }
 
     fn iterate_records(&self, table_id: u32) -> Result<Vec<Record<'_>>> {
-        if self.db_key.is_none() && !self.allow_partial {
+        if matches!(self.state, State::Locked) {
             return Err(Error::Locked);
         }
         let Some(table) = self.tables_map.get(&table_id) else {
@@ -271,6 +251,9 @@ impl Keychain {
     }
 
     fn decrypt_blob(&self, rec: &Record<'_>) -> Result<Vec<u8>> {
+        let State::Unlocked { key_list, .. } = &self.state else {
+            return Err(Error::Locked);
+        };
         let block = parse_ssgp(rec.blob_data)?;
         if &block.magic != SECURE_STORAGE_GROUP {
             return Err(Error::ParseFailed(format!(
@@ -284,14 +267,16 @@ impl Keychain {
         let mut index = Vec::with_capacity(block.magic.len() + block.label.len());
         index.extend_from_slice(&block.magic);
         index.extend_from_slice(&block.label);
-        let key = self
-            .key_list
+        let key = key_list
             .get(&index)
             .ok_or_else(|| Error::ParseFailed("no matching key for SSGP label".into()))?;
         kc_decrypt(key, &block.iv, block.encrypted_password)
     }
 
     fn decrypt_private_key(&self, rec: &Record<'_>) -> Result<PrivateKey> {
+        let State::Unlocked { db_key, .. } = &self.state else {
+            return Err(Error::Locked);
+        };
         let data = rec.raw_payload;
         if data.len() < KEY_BLOB_LEN {
             return Err(Error::ParseFailed("private key blob too small".into()));
@@ -314,7 +299,6 @@ impl Keychain {
         let ciphertext = data
             .get(cipher_start..cipher_end)
             .ok_or_else(|| Error::ParseFailed("cipher slice out of bounds".into()))?;
-        let db_key = self.db_key.as_deref().ok_or(Error::Locked)?;
         let plain = private_key_decrypt(ciphertext, &blob.iv, db_key)?;
         let (name, key_data) = if plain.len() > PRIVATE_KEY_NAME_LEN {
             let (head, tail) = plain.split_at(PRIVATE_KEY_NAME_LEN);
@@ -323,8 +307,6 @@ impl Keychain {
             (String::new(), plain)
         };
         Ok(PrivateKey {
-            data_hex: hex::encode(&key_data),
-            data_base64: BASE64_STANDARD.encode(&key_data),
             name,
             data: key_data,
             print_name: rec.read_string_attr(tables::ATTR_PRINT_NAME),

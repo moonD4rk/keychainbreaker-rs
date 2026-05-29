@@ -2,7 +2,7 @@
 
 Rust library and CLI for parsing and decrypting macOS Keychain files (`login.keychain-db`).
 
-**Status: early development (v0.1.0 pre-release).** The design is locked in via the RFC set under [`rfcs/`](rfcs/); the implementation is being delivered in milestones (see [RFC 001 § 10](rfcs/001-rust-port-overview.md)).
+**Status: early development (v0.1.0 pre-release).** The API is still being refined for idiomatic Rust ahead of the first release.
 
 This is a Rust port of the Go library at <https://github.com/moond4rk/keychainbreaker>. The encryption mechanics are identical; this repository tracks Go upstream for crypto correctness and re-defines the surface for idiomatic Rust ergonomics.
 
@@ -20,18 +20,20 @@ This is a Rust port of the Go library at <https://github.com/moond4rk/keychainbr
 | [`keychainbreaker`](crates/keychainbreaker/) | The library. Pure Rust, no `unsafe`, no platform-specific code. MSRV 1.74. |
 | [`keychainbreaker-cli`](crates/keychainbreaker-cli/) | The `keychainbreaker` binary with `dump`, `hash`, `version` subcommands. MSRV 1.78. |
 
-## Quick Start (planned API)
+## Quick Start
 
 Library:
 
 ```rust
-use keychainbreaker::{Keychain, UnlockOptions};
+use keychainbreaker::{Credential, Keychain};
 
 let mut kc = Keychain::open_file("/Users/me/Library/Keychains/login.keychain-db")?;
-kc.unlock(UnlockOptions::with_password("hunter2"))?;
+kc.unlock(Credential::password("hunter2"))?;
 
 for entry in kc.generic_passwords()? {
-    println!("{}: {}", entry.service, entry.plain_password);
+    if let Some(pw) = &entry.password {
+        println!("{}: {}", entry.service, String::from_utf8_lossy(pw));
+    }
 }
 ```
 

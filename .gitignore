@@ -24,6 +24,5 @@
 # --- Build artifacts (override the extension allows above)
 target/
 
-# --- RFCs are kept locally but not yet ready to publish. Remove this line
-#     when the RFC set is ready to land on GitHub.
+# --- Local-only working notes; never committed (overrides the `!*.md` allow).
 /rfcs/

@@ -45,19 +45,18 @@ pub(crate) fn write_json_file(path: &Path, output: &DumpOutput) -> anyhow::Resul
 
 /// Print the per-table extraction summary to stderr in the format
 /// `printDumpSummary` from `cmd/keychainbreaker/cmd/output.go` produces.
-pub(crate) fn print_summary(
-    gps_len: usize,
-    ips_len: usize,
-    pks_len: usize,
-    certs_len: usize,
-    unlocked: bool,
-    output_path: &Path,
-) {
+pub(crate) fn print_summary(dump: &DumpOutput, unlocked: bool, output_path: &Path) {
     let suffix = if unlocked { "" } else { " (metadata only)" };
     eprintln!("Extracted:");
-    eprintln!("  Generic passwords:  {gps_len}{suffix}");
-    eprintln!("  Internet passwords: {ips_len}{suffix}");
-    eprintln!("  Private keys:       {pks_len}{suffix}");
-    eprintln!("  Certificates:       {certs_len}");
+    eprintln!(
+        "  Generic passwords:  {}{suffix}",
+        dump.generic_passwords.len()
+    );
+    eprintln!(
+        "  Internet passwords: {}{suffix}",
+        dump.internet_passwords.len()
+    );
+    eprintln!("  Private keys:       {}{suffix}", dump.private_keys.len());
+    eprintln!("  Certificates:       {}", dump.certificates.len());
     eprintln!("Output: {}", output_path.display());
 }

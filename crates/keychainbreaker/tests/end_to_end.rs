@@ -12,11 +12,16 @@
     let_underscore_drop
 )]
 
-use keychainbreaker::{Error, Keychain, UnlockOptions};
+use keychainbreaker::{Credential, Error, Keychain};
 
 const FIXTURE_PATH: &str = "tests/data/test.keychain-db";
 const TEST_PASSWORD: &str = "keychainbreaker-test";
-const TEST_MASTER_KEY_HEX: &str = "4557eb716bbf20200945109cf3b884af9aca72e890e47c07";
+/// The 24-byte master key for the fixture (hex
+/// `4557eb716bbf20200945109cf3b884af9aca72e890e47c07`).
+const TEST_MASTER_KEY: [u8; 24] = [
+    0x45, 0x57, 0xeb, 0x71, 0x6b, 0xbf, 0x20, 0x20, 0x09, 0x45, 0x10, 0x9c, 0xf3, 0xb8, 0x84, 0xaf,
+    0x9a, 0xca, 0x72, 0xe8, 0x90, 0xe4, 0x7c, 0x07,
+];
 const EXPECTED_PLAINTEXT: &[u8] = b"password#123";
 
 fn open_fixture() -> Keychain {
@@ -67,9 +72,7 @@ fn extract_before_unlock_returns_locked() {
 #[test]
 fn unlock_with_wrong_key_returns_wrong_key() {
     let mut kc = open_fixture();
-    let err = kc
-        .unlock(UnlockOptions::with_key("0".repeat(48)))
-        .unwrap_err();
+    let err = kc.unlock(Credential::Key([0_u8; 24])).unwrap_err();
     assert!(matches!(err, Error::WrongKey));
     assert!(!kc.unlocked());
 }
@@ -78,24 +81,16 @@ fn unlock_with_wrong_key_returns_wrong_key() {
 fn unlock_with_wrong_password_returns_wrong_key() {
     let mut kc = open_fixture();
     let err = kc
-        .unlock(UnlockOptions::with_password("wrong-password"))
+        .unlock(Credential::password("wrong-password"))
         .unwrap_err();
     assert!(matches!(err, Error::WrongKey));
     assert!(!kc.unlocked());
 }
 
 #[test]
-fn unlock_without_credential_returns_no_credential() {
+fn unlock_with_key_succeeds() {
     let mut kc = open_fixture();
-    let err = kc.unlock(UnlockOptions::default()).unwrap_err();
-    assert!(matches!(err, Error::NoCredential));
-}
-
-#[test]
-fn unlock_with_hex_key_succeeds() {
-    let mut kc = open_fixture();
-    kc.unlock(UnlockOptions::with_key(TEST_MASTER_KEY_HEX))
-        .unwrap();
+    kc.unlock(Credential::Key(TEST_MASTER_KEY)).unwrap();
     assert!(kc.unlocked());
     assert_generic_passwords_full(&kc);
 }
@@ -103,18 +98,9 @@ fn unlock_with_hex_key_succeeds() {
 #[test]
 fn unlock_with_password_succeeds() {
     let mut kc = open_fixture();
-    kc.unlock(UnlockOptions::with_password(TEST_PASSWORD))
-        .unwrap();
+    kc.unlock(Credential::password(TEST_PASSWORD)).unwrap();
     assert!(kc.unlocked());
     assert_generic_passwords_full(&kc);
-}
-
-#[test]
-fn unlock_with_hex_key_prefixed_with_0x() {
-    let mut kc = open_fixture();
-    let prefixed = format!("0x{TEST_MASTER_KEY_HEX}");
-    kc.unlock(UnlockOptions::with_key(prefixed)).unwrap();
-    assert!(kc.unlocked());
 }
 
 fn assert_generic_passwords_full(kc: &Keychain) {
@@ -128,9 +114,6 @@ fn assert_generic_passwords_full(kc: &Keychain) {
     let moond4rk = &by_service["moond4rk.com"];
     assert_eq!(moond4rk.account, "admin");
     assert_eq!(moond4rk.password.as_deref(), Some(EXPECTED_PLAINTEXT));
-    assert_eq!(moond4rk.plain_password, "password#123");
-    assert_eq!(moond4rk.hex_password, "70617373776f726423313233");
-    assert_eq!(moond4rk.base64_password, "cGFzc3dvcmQjMTIz");
     assert_eq!(moond4rk.description, "application password");
     assert_eq!(moond4rk.comment, "test generic password");
     assert_eq!(moond4rk.creator, "mD4k");
@@ -148,8 +131,7 @@ fn assert_generic_passwords_full(kc: &Keychain) {
 #[test]
 fn internet_passwords_decrypt_correctly() {
     let mut kc = open_fixture();
-    kc.unlock(UnlockOptions::with_password(TEST_PASSWORD))
-        .unwrap();
+    kc.unlock(Credential::password(TEST_PASSWORD)).unwrap();
 
     let entries = kc.internet_passwords().unwrap();
     assert_eq!(entries.len(), 2);
@@ -177,8 +159,7 @@ fn private_keys_decrypt_and_parse_as_rsa_2048() {
     use rsa::traits::PublicKeyParts;
 
     let mut kc = open_fixture();
-    kc.unlock(UnlockOptions::with_password(TEST_PASSWORD))
-        .unwrap();
+    kc.unlock(Credential::password(TEST_PASSWORD)).unwrap();
 
     let keys = kc.private_keys().unwrap();
     assert_eq!(keys.len(), 1);
@@ -198,8 +179,7 @@ fn certificates_parse_as_self_signed_x509() {
     use x509_parser::prelude::*;
 
     let mut kc = open_fixture();
-    kc.unlock(UnlockOptions::with_password(TEST_PASSWORD))
-        .unwrap();
+    kc.unlock(Credential::password(TEST_PASSWORD)).unwrap();
 
     let certs = kc.certificates().unwrap();
     assert_eq!(certs.len(), 1);
@@ -229,14 +209,13 @@ fn certificates_parse_as_self_signed_x509() {
 #[test]
 fn try_unlock_partial_mode_yields_metadata_without_decryption() {
     let mut kc = open_fixture();
-    kc.try_unlock(UnlockOptions::default()).unwrap();
+    kc.try_unlock(None).unwrap();
     assert!(!kc.unlocked());
 
     let entries = kc.generic_passwords().unwrap();
     assert_eq!(entries.len(), 2);
     for entry in &entries {
         assert!(entry.password.is_none(), "encrypted bytes leaked");
-        assert_eq!(entry.plain_password, "");
         assert!(!entry.account.is_empty(), "metadata should still be there");
     }
 
@@ -255,10 +234,8 @@ fn try_unlock_partial_mode_yields_metadata_without_decryption() {
 #[test]
 fn try_unlock_with_wrong_password_still_returns_metadata() {
     let mut kc = open_fixture();
-    let err = kc
-        .try_unlock(UnlockOptions::with_password("wrong-password"))
-        .unwrap_err();
-    assert!(matches!(err, Error::WrongKey));
+    kc.try_unlock(Some(Credential::password("wrong-password")))
+        .unwrap();
     assert!(!kc.unlocked());
 
     let entries = kc.generic_passwords().unwrap();
@@ -271,11 +248,10 @@ fn try_unlock_with_wrong_password_still_returns_metadata() {
 #[test]
 fn try_unlock_then_unlock_restores_full_access() {
     let mut kc = open_fixture();
-    let _ = kc.try_unlock(UnlockOptions::with_password("wrong"));
+    kc.try_unlock(Some(Credential::password("wrong"))).unwrap();
     assert!(!kc.unlocked());
 
-    kc.unlock(UnlockOptions::with_password(TEST_PASSWORD))
-        .unwrap();
+    kc.unlock(Credential::password(TEST_PASSWORD)).unwrap();
     assert!(kc.unlocked());
 
     let entries = kc.generic_passwords().unwrap();
@@ -285,14 +261,12 @@ fn try_unlock_then_unlock_restores_full_access() {
 }
 
 #[test]
-fn unlock_failure_resets_allow_partial() {
+fn unlock_failure_resets_partial_state() {
     let mut kc = open_fixture();
-    kc.try_unlock(UnlockOptions::default()).unwrap();
+    kc.try_unlock(None).unwrap();
     assert!(kc.generic_passwords().is_ok()); // partial mode active
 
-    let err = kc
-        .unlock(UnlockOptions::with_password("wrong"))
-        .unwrap_err();
+    let err = kc.unlock(Credential::password("wrong")).unwrap_err();
     assert!(matches!(err, Error::WrongKey));
     assert!(!kc.unlocked());
 
