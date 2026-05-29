@@ -27,8 +27,3 @@ CI runs all of these on Linux / macOS / Windows. A PR must pass them. When addin
 - Library code uses `Result`, not `panic!`/`unwrap`/`expect`.
 - Library does not depend on `clap` / `rpassword` / `serde_json` / `anyhow`.
 - New root-level files must be added to `.gitignore` (whitelist mode — root is ignored by default).
-
-## Where to Read
-
-The Go reference implementation (same algorithm, behavior to match) lives at
-`/Users/moond4rk/Developer/golang/mygo/keychainbreaker/`.
