@@ -161,6 +161,21 @@ fn parse_into_keychain(buf: Vec<u8>, logger: Box<dyn Logger>) -> Result<Keychain
         let _previous = tables_map.entry(table.table_id).or_insert(table);
     }
 
+    let mut table_ids: Vec<u32> = tables_map.keys().copied().collect();
+    table_ids.sort_unstable();
+    for id in table_ids {
+        if let Some(table) = tables_map.get(&id) {
+            logger.debug(
+                "parsed table",
+                &[
+                    ("name", &tables::table_id_name(id)),
+                    ("id", &format_args!("0x{id:08X}")),
+                    ("records", &table.record_offsets.len()),
+                ],
+            );
+        }
+    }
+
     let schema = build_schema(&buf, &tables_map)?;
 
     let meta_table = tables_map
@@ -178,6 +193,11 @@ fn parse_into_keychain(buf: Vec<u8>, logger: Box<dyn Logger>) -> Result<Keychain
     )?;
     let magic = format_args!("0x{:08X}", db_blob.magic);
     let blob_version = format_args!("0x{:08X}", db_blob.blob_version);
+    let salt_len = db_blob.salt.len();
+    let iv_len = db_blob.iv.len();
+    let ciphertext_len = db_blob
+        .total_length
+        .saturating_sub(db_blob.start_crypto_blob);
     logger.info(
         "parsed DBBlob",
         &[
@@ -185,6 +205,9 @@ fn parse_into_keychain(buf: Vec<u8>, logger: Box<dyn Logger>) -> Result<Keychain
             ("blobVersion", &blob_version),
             ("startCryptoBlob", &db_blob.start_crypto_blob),
             ("totalLength", &db_blob.total_length),
+            ("saltLen", &salt_len),
+            ("ivLen", &iv_len),
+            ("ciphertextLen", &ciphertext_len),
         ],
     );
 

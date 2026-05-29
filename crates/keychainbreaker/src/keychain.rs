@@ -96,11 +96,20 @@ impl Keychain {
     pub fn generic_passwords(&self) -> Result<Vec<GenericPassword>> {
         let records = self.iterate_records(tables::TABLE_GENERIC_PASSWORD)?;
         let mut out = Vec::with_capacity(records.len());
+        let mut decrypted = 0_usize;
+        let mut failed = 0_usize;
         for rec in &records {
+            let result = self.decrypt_blob(rec);
+            if result.is_ok() {
+                decrypted += 1;
+            } else {
+                failed += 1;
+            }
+            let password = result.ok();
             out.push(GenericPassword {
                 service: rec.read_string_attr(tables::ATTR_SERVICE_NAME),
                 account: rec.read_string_attr(tables::ATTR_ACCOUNT_NAME),
-                password: self.decrypt_blob(rec).ok(),
+                password,
                 description: rec.read_string_attr(tables::ATTR_DESCRIPTION),
                 comment: rec.read_string_attr(tables::ATTR_COMMENT),
                 creator: rec.read_fourcc_attr(tables::ATTR_CREATOR),
@@ -111,6 +120,14 @@ impl Keychain {
                 modified: rec.read_time_attr(tables::ATTR_MODIFIED),
             });
         }
+        self.logger.debug(
+            "GenericPasswords extracted",
+            &[
+                ("total", &out.len()),
+                ("decrypted", &decrypted),
+                ("failed", &failed),
+            ],
+        );
         Ok(out)
     }
 
@@ -119,11 +136,20 @@ impl Keychain {
     pub fn internet_passwords(&self) -> Result<Vec<InternetPassword>> {
         let records = self.iterate_records(tables::TABLE_INTERNET_PASSWORD)?;
         let mut out = Vec::with_capacity(records.len());
+        let mut decrypted = 0_usize;
+        let mut failed = 0_usize;
         for rec in &records {
+            let result = self.decrypt_blob(rec);
+            if result.is_ok() {
+                decrypted += 1;
+            } else {
+                failed += 1;
+            }
+            let password = result.ok();
             out.push(InternetPassword {
                 server: rec.read_string_attr(tables::ATTR_SERVER),
                 account: rec.read_string_attr(tables::ATTR_ACCOUNT_NAME),
-                password: self.decrypt_blob(rec).ok(),
+                password,
                 security_domain: rec.read_string_attr(tables::ATTR_SECURITY_DOMAIN),
                 protocol: rec.read_fourcc_attr(tables::ATTR_PROTOCOL),
                 auth_type: rec.read_fourcc_attr(tables::ATTR_AUTH_TYPE),
@@ -139,6 +165,14 @@ impl Keychain {
                 modified: rec.read_time_attr(tables::ATTR_MODIFIED),
             });
         }
+        self.logger.debug(
+            "InternetPasswords extracted",
+            &[
+                ("total", &out.len()),
+                ("decrypted", &decrypted),
+                ("failed", &failed),
+            ],
+        );
         Ok(out)
     }
 
@@ -150,20 +184,38 @@ impl Keychain {
     pub fn private_keys(&self) -> Result<Vec<PrivateKey>> {
         let records = self.iterate_records(tables::TABLE_PRIVATE_KEY)?;
         let mut out = Vec::new();
+        let mut decrypted = 0_usize;
+        let mut failed = 0_usize;
         for rec in &records {
             match self.decrypt_private_key(rec) {
-                Ok(pk) => out.push(pk),
-                Err(_) if matches!(self.state, State::Partial) => out.push(PrivateKey {
-                    print_name: rec.read_string_attr(tables::ATTR_PRINT_NAME),
-                    label: rec.read_string_attr(tables::ATTR_LABEL),
-                    key_class: rec.read_u32_attr(tables::ATTR_KEY_CLASS),
-                    key_type: rec.read_u32_attr(tables::ATTR_KEY_TYPE),
-                    key_size: rec.read_u32_attr(tables::ATTR_KEY_SIZE_IN_BITS),
-                    ..PrivateKey::default()
-                }),
-                Err(_) => {}
+                Ok(pk) => {
+                    decrypted += 1;
+                    out.push(pk);
+                }
+                Err(_) if matches!(self.state, State::Partial) => {
+                    failed += 1;
+                    out.push(PrivateKey {
+                        print_name: rec.read_string_attr(tables::ATTR_PRINT_NAME),
+                        label: rec.read_string_attr(tables::ATTR_LABEL),
+                        key_class: rec.read_u32_attr(tables::ATTR_KEY_CLASS),
+                        key_type: rec.read_u32_attr(tables::ATTR_KEY_TYPE),
+                        key_size: rec.read_u32_attr(tables::ATTR_KEY_SIZE_IN_BITS),
+                        ..PrivateKey::default()
+                    });
+                }
+                Err(_) => {
+                    failed += 1;
+                }
             }
         }
+        self.logger.debug(
+            "PrivateKeys extracted",
+            &[
+                ("total", &out.len()),
+                ("decrypted", &decrypted),
+                ("failed", &failed),
+            ],
+        );
         Ok(out)
     }
 
@@ -236,12 +288,12 @@ impl Keychain {
             }
         }
         if skipped > 0 {
-            let table_tag = format!("0x{table_id:08X}");
+            let table_name = tables::table_id_name(table_id);
             let total = table.record_offsets.len();
             self.logger.warn(
                 "records skipped during parse",
                 &[
-                    ("table", &table_tag),
+                    ("table", &table_name),
                     ("skipped", &skipped),
                     ("total", &total),
                 ],

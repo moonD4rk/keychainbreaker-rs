@@ -27,6 +27,26 @@ pub(crate) const TABLE_APPLE_SHARE_PASSWORD: u32 = 0x8000_0002;
 pub(crate) const TABLE_X509_CERTIFICATE: u32 = 0x8000_1000;
 pub(crate) const TABLE_METADATA: u32 = 0x8000_8000;
 
+/// Human-readable name for a table ID, used in diagnostic logging.
+pub(crate) fn table_id_name(id: u32) -> String {
+    let name = match id {
+        TABLE_SCHEMA_INFO => "SchemaInfo",
+        TABLE_SCHEMA_INDEXES => "SchemaIndexes",
+        TABLE_SCHEMA_ATTRIBUTES => "SchemaAttributes",
+        TABLE_SCHEMA_PARSING_MODULE => "SchemaParsingModule",
+        TABLE_PUBLIC_KEY => "PublicKey",
+        TABLE_PRIVATE_KEY => "PrivateKey",
+        TABLE_SYMMETRIC_KEY => "SymmetricKey",
+        TABLE_GENERIC_PASSWORD => "GenericPassword",
+        TABLE_INTERNET_PASSWORD => "InternetPassword",
+        TABLE_APPLE_SHARE_PASSWORD => "AppleSharePassword",
+        TABLE_X509_CERTIFICATE => "X509Certificate",
+        TABLE_METADATA => "Metadata",
+        _ => return format!("Unknown(0x{id:08X})"),
+    };
+    name.to_owned()
+}
+
 // Attribute names. FourCC codes (4-byte ASCII) for record payload fields,
 // plus longer descriptive strings used by the SchemaAttributes table.
 
