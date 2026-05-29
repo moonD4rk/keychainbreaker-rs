@@ -1,242 +1,105 @@
 //! Public record types extracted from a keychain.
 //!
-//! All four types mirror the Go library's `types.go` field for field. Each
-//! `Password` / `Data` / `Subject` / etc. is exposed both as raw bytes (for
-//! programmatic use) and as multiple encoded representations (for the JSON
-//! dump shipped by the CLI). The encoded fields are populated by the
-//! extraction methods on `Keychain`; on a locked or partially-unlocked
-//! keychain they remain empty.
+//! Each record stores its decrypted secret / binary payload exactly once, as
+//! raw bytes. Textual and encoded views (UTF-8, hex, base64) are a presentation
+//! concern, not model state: callers read the raw bytes and encode as needed.
+//! Under the `serde` feature each type serializes through a private projection
+//! that computes those encodings on the fly, so the JSON dump keeps the
+//! historical `password`/`hex_password`/`base64_password` shape without the
+//! struct carrying redundant copies.
 
-#[cfg(feature = "serde")]
-use serde::Serialize;
 use time::OffsetDateTime;
 
 #[cfg(feature = "serde")]
-const fn is_zero_u32(v: &u32) -> bool {
-    *v == 0
-}
+use serde::Serialize;
 
 /// A generic password record (services, applications, custom items).
 #[derive(Debug, Clone, Default)]
 #[cfg_attr(feature = "serde", derive(Serialize))]
-#[cfg_attr(feature = "serde", serde(rename_all = "snake_case"))]
+#[cfg_attr(feature = "serde", serde(into = "json::GenericPasswordJson"))]
 pub struct GenericPassword {
     /// Service identifier (FourCC attribute `svce`).
-    #[cfg_attr(feature = "serde", serde(skip_serializing_if = "String::is_empty"))]
     pub service: String,
-
     /// Account identifier (FourCC attribute `acct`).
-    #[cfg_attr(feature = "serde", serde(skip_serializing_if = "String::is_empty"))]
     pub account: String,
-
-    /// Raw decrypted password bytes. `None` when locked or when `try_unlock`
-    /// could not produce a key for this record.
-    #[cfg_attr(feature = "serde", serde(skip))]
+    /// Raw decrypted password bytes. `None` when locked or when the record
+    /// could not be decrypted.
     pub password: Option<Vec<u8>>,
-
-    /// Decrypted password interpreted as UTF-8. Empty when not decrypted or
-    /// when the bytes are not valid UTF-8.
-    #[cfg_attr(
-        feature = "serde",
-        serde(rename = "password", skip_serializing_if = "String::is_empty")
-    )]
-    pub plain_password: String,
-
-    /// Decrypted password as lowercase hex.
-    #[cfg_attr(feature = "serde", serde(skip_serializing_if = "String::is_empty"))]
-    pub hex_password: String,
-
-    /// Decrypted password as standard base64.
-    #[cfg_attr(feature = "serde", serde(skip_serializing_if = "String::is_empty"))]
-    pub base64_password: String,
-
     /// Free-form description.
-    #[cfg_attr(feature = "serde", serde(skip_serializing_if = "String::is_empty"))]
     pub description: String,
-
     /// Free-form comment.
-    #[cfg_attr(feature = "serde", serde(skip_serializing_if = "String::is_empty"))]
     pub comment: String,
-
     /// Creator FourCC (e.g. `mD4k`).
-    #[cfg_attr(feature = "serde", serde(skip_serializing_if = "String::is_empty"))]
     pub creator: String,
-
     /// Type FourCC (e.g. `note`).
-    #[cfg_attr(
-        feature = "serde",
-        serde(rename = "type", skip_serializing_if = "String::is_empty")
-    )]
     pub type_: String,
-
     /// Display name shown in Keychain Access.app.
-    #[cfg_attr(feature = "serde", serde(skip_serializing_if = "String::is_empty"))]
     pub print_name: String,
-
     /// Alternate name (uncommon).
-    #[cfg_attr(feature = "serde", serde(skip_serializing_if = "String::is_empty"))]
     pub alias: String,
-
     /// Creation timestamp.
-    #[cfg_attr(
-        feature = "serde",
-        serde(
-            with = "time::serde::rfc3339::option",
-            skip_serializing_if = "Option::is_none"
-        )
-    )]
     pub created: Option<OffsetDateTime>,
-
     /// Last-modified timestamp.
-    #[cfg_attr(
-        feature = "serde",
-        serde(
-            with = "time::serde::rfc3339::option",
-            skip_serializing_if = "Option::is_none"
-        )
-    )]
     pub modified: Option<OffsetDateTime>,
 }
 
 /// An internet password record (web sites, mail servers, file shares).
 #[derive(Debug, Clone, Default)]
 #[cfg_attr(feature = "serde", derive(Serialize))]
-#[cfg_attr(feature = "serde", serde(rename_all = "snake_case"))]
+#[cfg_attr(feature = "serde", serde(into = "json::InternetPasswordJson"))]
 pub struct InternetPassword {
     /// Server hostname or IP.
-    #[cfg_attr(feature = "serde", serde(skip_serializing_if = "String::is_empty"))]
     pub server: String,
-
     /// Account / username.
-    #[cfg_attr(feature = "serde", serde(skip_serializing_if = "String::is_empty"))]
     pub account: String,
-
     /// Raw decrypted password bytes. `None` when locked or undecryptable.
-    #[cfg_attr(feature = "serde", serde(skip))]
     pub password: Option<Vec<u8>>,
-
-    /// Decrypted password interpreted as UTF-8.
-    #[cfg_attr(
-        feature = "serde",
-        serde(rename = "password", skip_serializing_if = "String::is_empty")
-    )]
-    pub plain_password: String,
-
-    /// Decrypted password as lowercase hex.
-    #[cfg_attr(feature = "serde", serde(skip_serializing_if = "String::is_empty"))]
-    pub hex_password: String,
-
-    /// Decrypted password as standard base64.
-    #[cfg_attr(feature = "serde", serde(skip_serializing_if = "String::is_empty"))]
-    pub base64_password: String,
-
     /// Optional authentication realm.
-    #[cfg_attr(feature = "serde", serde(skip_serializing_if = "String::is_empty"))]
     pub security_domain: String,
-
     /// Protocol FourCC (e.g. `htps`, `smb `).
-    #[cfg_attr(feature = "serde", serde(skip_serializing_if = "String::is_empty"))]
     pub protocol: String,
-
     /// Authentication type FourCC.
-    #[cfg_attr(feature = "serde", serde(skip_serializing_if = "String::is_empty"))]
     pub auth_type: String,
-
     /// Port number (0 when not specified).
-    #[cfg_attr(feature = "serde", serde(skip_serializing_if = "is_zero_u32"))]
     pub port: u32,
-
     /// URL path component.
-    #[cfg_attr(feature = "serde", serde(skip_serializing_if = "String::is_empty"))]
     pub path: String,
-
     /// Free-form description.
-    #[cfg_attr(feature = "serde", serde(skip_serializing_if = "String::is_empty"))]
     pub description: String,
-
     /// Free-form comment.
-    #[cfg_attr(feature = "serde", serde(skip_serializing_if = "String::is_empty"))]
     pub comment: String,
-
     /// Creator FourCC.
-    #[cfg_attr(feature = "serde", serde(skip_serializing_if = "String::is_empty"))]
     pub creator: String,
-
     /// Type FourCC.
-    #[cfg_attr(
-        feature = "serde",
-        serde(rename = "type", skip_serializing_if = "String::is_empty")
-    )]
     pub type_: String,
-
     /// Display name.
-    #[cfg_attr(feature = "serde", serde(skip_serializing_if = "String::is_empty"))]
     pub print_name: String,
-
     /// Alternate name.
-    #[cfg_attr(feature = "serde", serde(skip_serializing_if = "String::is_empty"))]
     pub alias: String,
-
     /// Creation timestamp.
-    #[cfg_attr(
-        feature = "serde",
-        serde(
-            with = "time::serde::rfc3339::option",
-            skip_serializing_if = "Option::is_none"
-        )
-    )]
     pub created: Option<OffsetDateTime>,
-
     /// Last-modified timestamp.
-    #[cfg_attr(
-        feature = "serde",
-        serde(
-            with = "time::serde::rfc3339::option",
-            skip_serializing_if = "Option::is_none"
-        )
-    )]
     pub modified: Option<OffsetDateTime>,
 }
 
 /// A private-key record. `data` is the decrypted PKCS#8 key material.
 #[derive(Debug, Clone, Default)]
 #[cfg_attr(feature = "serde", derive(Serialize))]
-#[cfg_attr(feature = "serde", serde(rename_all = "snake_case"))]
+#[cfg_attr(feature = "serde", serde(into = "json::PrivateKeyJson"))]
 pub struct PrivateKey {
     /// Name extracted from the first 12 bytes of decrypted key material.
-    #[cfg_attr(feature = "serde", serde(skip_serializing_if = "String::is_empty"))]
     pub name: String,
-
     /// Raw decrypted key bytes (PKCS#8). Empty when locked or undecryptable.
-    #[cfg_attr(feature = "serde", serde(skip))]
     pub data: Vec<u8>,
-
-    /// Decrypted key bytes as lowercase hex.
-    #[cfg_attr(feature = "serde", serde(skip_serializing_if = "String::is_empty"))]
-    pub data_hex: String,
-
-    /// Decrypted key bytes as standard base64.
-    #[cfg_attr(feature = "serde", serde(skip_serializing_if = "String::is_empty"))]
-    pub data_base64: String,
-
     /// Display name.
-    #[cfg_attr(feature = "serde", serde(skip_serializing_if = "String::is_empty"))]
     pub print_name: String,
-
     /// Apple key label.
-    #[cfg_attr(feature = "serde", serde(skip_serializing_if = "String::is_empty"))]
     pub label: String,
-
     /// CSSM key class (private/public/symmetric).
-    #[cfg_attr(feature = "serde", serde(skip_serializing_if = "is_zero_u32"))]
     pub key_class: u32,
-
     /// CSSM key type (RSA, ECC, etc.).
-    #[cfg_attr(feature = "serde", serde(skip_serializing_if = "is_zero_u32"))]
     pub key_type: u32,
-
     /// Key size in bits.
-    #[cfg_attr(feature = "serde", serde(skip_serializing_if = "is_zero_u32"))]
     pub key_size: u32,
 }
 
@@ -244,56 +107,327 @@ pub struct PrivateKey {
 /// `data` is always populated when the keychain is opened successfully.
 #[derive(Debug, Clone, Default)]
 #[cfg_attr(feature = "serde", derive(Serialize))]
-#[cfg_attr(feature = "serde", serde(rename_all = "snake_case"))]
+#[cfg_attr(feature = "serde", serde(into = "json::CertificateJson"))]
 pub struct Certificate {
     /// Raw DER-encoded certificate bytes.
-    #[cfg_attr(feature = "serde", serde(skip))]
     pub data: Vec<u8>,
-
-    /// Certificate bytes as lowercase hex.
-    #[cfg_attr(feature = "serde", serde(skip_serializing_if = "String::is_empty"))]
-    pub data_hex: String,
-
-    /// Certificate bytes as standard base64.
-    #[cfg_attr(feature = "serde", serde(skip_serializing_if = "String::is_empty"))]
-    pub data_base64: String,
-
     /// Certificate type code.
-    #[cfg_attr(
-        feature = "serde",
-        serde(rename = "type", skip_serializing_if = "is_zero_u32")
-    )]
     pub type_: u32,
-
     /// Certificate encoding code.
-    #[cfg_attr(feature = "serde", serde(skip_serializing_if = "is_zero_u32"))]
     pub encoding: u32,
-
     /// Display name (typically the subject CN).
-    #[cfg_attr(feature = "serde", serde(skip_serializing_if = "String::is_empty"))]
     pub print_name: String,
-
     /// Raw DER-encoded subject DN.
-    #[cfg_attr(feature = "serde", serde(skip))]
     pub subject: Vec<u8>,
-
-    /// Subject DN as lowercase hex.
-    #[cfg_attr(feature = "serde", serde(skip_serializing_if = "String::is_empty"))]
-    pub subject_hex: String,
-
     /// Raw DER-encoded issuer DN.
-    #[cfg_attr(feature = "serde", serde(skip))]
     pub issuer: Vec<u8>,
-
-    /// Issuer DN as lowercase hex.
-    #[cfg_attr(feature = "serde", serde(skip_serializing_if = "String::is_empty"))]
-    pub issuer_hex: String,
-
     /// Raw serial number bytes.
-    #[cfg_attr(feature = "serde", serde(skip))]
     pub serial: Vec<u8>,
+}
 
-    /// Serial number as lowercase hex.
-    #[cfg_attr(feature = "serde", serde(skip_serializing_if = "String::is_empty"))]
-    pub serial_hex: String,
+#[cfg(feature = "serde")]
+mod json {
+    //! Serialization projections. These mirror the Go CLI's JSON layout:
+    //! secrets/blobs are emitted as `*_hex` / `*_base64` (and the UTF-8
+    //! `password`) computed from the raw bytes at serialize time, so the public
+    //! record types stay free of redundant stored encodings.
+
+    use base64::Engine as _;
+    use serde::Serialize;
+    use time::OffsetDateTime;
+
+    use super::{Certificate, GenericPassword, InternetPassword, PrivateKey};
+
+    fn b64(bytes: &[u8]) -> String {
+        base64::engine::general_purpose::STANDARD.encode(bytes)
+    }
+
+    fn is_default<T: Default + PartialEq>(v: &T) -> bool {
+        *v == T::default()
+    }
+
+    /// Expand raw secret bytes into the `(utf8, hex, base64)` triplet the JSON
+    /// dump exposes. Absent / empty bytes collapse to three empty strings,
+    /// which the `skip_serializing_if` attributes then omit.
+    fn encode_secret(bytes: Option<&[u8]>) -> (String, String, String) {
+        match bytes {
+            Some(b) if !b.is_empty() => (
+                String::from_utf8_lossy(b).into_owned(),
+                hex::encode(b),
+                b64(b),
+            ),
+            _ => (String::new(), String::new(), String::new()),
+        }
+    }
+
+    #[derive(Serialize)]
+    #[serde(rename_all = "snake_case")]
+    pub(super) struct GenericPasswordJson {
+        #[serde(skip_serializing_if = "String::is_empty")]
+        service: String,
+        #[serde(skip_serializing_if = "String::is_empty")]
+        account: String,
+        #[serde(skip_serializing_if = "String::is_empty")]
+        password: String,
+        #[serde(skip_serializing_if = "String::is_empty")]
+        hex_password: String,
+        #[serde(skip_serializing_if = "String::is_empty")]
+        base64_password: String,
+        #[serde(skip_serializing_if = "String::is_empty")]
+        description: String,
+        #[serde(skip_serializing_if = "String::is_empty")]
+        comment: String,
+        #[serde(skip_serializing_if = "String::is_empty")]
+        creator: String,
+        #[serde(rename = "type", skip_serializing_if = "String::is_empty")]
+        type_: String,
+        #[serde(skip_serializing_if = "String::is_empty")]
+        print_name: String,
+        #[serde(skip_serializing_if = "String::is_empty")]
+        alias: String,
+        #[serde(
+            with = "time::serde::rfc3339::option",
+            skip_serializing_if = "Option::is_none"
+        )]
+        created: Option<OffsetDateTime>,
+        #[serde(
+            with = "time::serde::rfc3339::option",
+            skip_serializing_if = "Option::is_none"
+        )]
+        modified: Option<OffsetDateTime>,
+    }
+
+    impl From<GenericPassword> for GenericPasswordJson {
+        fn from(g: GenericPassword) -> Self {
+            let (password, hex_password, base64_password) = encode_secret(g.password.as_deref());
+            Self {
+                service: g.service,
+                account: g.account,
+                password,
+                hex_password,
+                base64_password,
+                description: g.description,
+                comment: g.comment,
+                creator: g.creator,
+                type_: g.type_,
+                print_name: g.print_name,
+                alias: g.alias,
+                created: g.created,
+                modified: g.modified,
+            }
+        }
+    }
+
+    #[derive(Serialize)]
+    #[serde(rename_all = "snake_case")]
+    pub(super) struct InternetPasswordJson {
+        #[serde(skip_serializing_if = "String::is_empty")]
+        server: String,
+        #[serde(skip_serializing_if = "String::is_empty")]
+        account: String,
+        #[serde(skip_serializing_if = "String::is_empty")]
+        password: String,
+        #[serde(skip_serializing_if = "String::is_empty")]
+        hex_password: String,
+        #[serde(skip_serializing_if = "String::is_empty")]
+        base64_password: String,
+        #[serde(skip_serializing_if = "String::is_empty")]
+        security_domain: String,
+        #[serde(skip_serializing_if = "String::is_empty")]
+        protocol: String,
+        #[serde(skip_serializing_if = "String::is_empty")]
+        auth_type: String,
+        #[serde(skip_serializing_if = "is_default")]
+        port: u32,
+        #[serde(skip_serializing_if = "String::is_empty")]
+        path: String,
+        #[serde(skip_serializing_if = "String::is_empty")]
+        description: String,
+        #[serde(skip_serializing_if = "String::is_empty")]
+        comment: String,
+        #[serde(skip_serializing_if = "String::is_empty")]
+        creator: String,
+        #[serde(rename = "type", skip_serializing_if = "String::is_empty")]
+        type_: String,
+        #[serde(skip_serializing_if = "String::is_empty")]
+        print_name: String,
+        #[serde(skip_serializing_if = "String::is_empty")]
+        alias: String,
+        #[serde(
+            with = "time::serde::rfc3339::option",
+            skip_serializing_if = "Option::is_none"
+        )]
+        created: Option<OffsetDateTime>,
+        #[serde(
+            with = "time::serde::rfc3339::option",
+            skip_serializing_if = "Option::is_none"
+        )]
+        modified: Option<OffsetDateTime>,
+    }
+
+    impl From<InternetPassword> for InternetPasswordJson {
+        fn from(i: InternetPassword) -> Self {
+            let (password, hex_password, base64_password) = encode_secret(i.password.as_deref());
+            Self {
+                server: i.server,
+                account: i.account,
+                password,
+                hex_password,
+                base64_password,
+                security_domain: i.security_domain,
+                protocol: i.protocol,
+                auth_type: i.auth_type,
+                port: i.port,
+                path: i.path,
+                description: i.description,
+                comment: i.comment,
+                creator: i.creator,
+                type_: i.type_,
+                print_name: i.print_name,
+                alias: i.alias,
+                created: i.created,
+                modified: i.modified,
+            }
+        }
+    }
+
+    #[derive(Serialize)]
+    #[serde(rename_all = "snake_case")]
+    pub(super) struct PrivateKeyJson {
+        #[serde(skip_serializing_if = "String::is_empty")]
+        name: String,
+        #[serde(skip_serializing_if = "String::is_empty")]
+        data_hex: String,
+        #[serde(skip_serializing_if = "String::is_empty")]
+        data_base64: String,
+        #[serde(skip_serializing_if = "String::is_empty")]
+        print_name: String,
+        #[serde(skip_serializing_if = "String::is_empty")]
+        label: String,
+        #[serde(skip_serializing_if = "is_default")]
+        key_class: u32,
+        #[serde(skip_serializing_if = "is_default")]
+        key_type: u32,
+        #[serde(skip_serializing_if = "is_default")]
+        key_size: u32,
+    }
+
+    impl From<PrivateKey> for PrivateKeyJson {
+        fn from(p: PrivateKey) -> Self {
+            let (data_hex, data_base64) = if p.data.is_empty() {
+                (String::new(), String::new())
+            } else {
+                (hex::encode(&p.data), b64(&p.data))
+            };
+            Self {
+                name: p.name,
+                data_hex,
+                data_base64,
+                print_name: p.print_name,
+                label: p.label,
+                key_class: p.key_class,
+                key_type: p.key_type,
+                key_size: p.key_size,
+            }
+        }
+    }
+
+    #[derive(Serialize)]
+    #[serde(rename_all = "snake_case")]
+    pub(super) struct CertificateJson {
+        #[serde(skip_serializing_if = "String::is_empty")]
+        data_hex: String,
+        #[serde(skip_serializing_if = "String::is_empty")]
+        data_base64: String,
+        #[serde(rename = "type", skip_serializing_if = "is_default")]
+        type_: u32,
+        #[serde(skip_serializing_if = "is_default")]
+        encoding: u32,
+        #[serde(skip_serializing_if = "String::is_empty")]
+        print_name: String,
+        #[serde(skip_serializing_if = "String::is_empty")]
+        subject_hex: String,
+        #[serde(skip_serializing_if = "String::is_empty")]
+        issuer_hex: String,
+        #[serde(skip_serializing_if = "String::is_empty")]
+        serial_hex: String,
+    }
+
+    impl From<Certificate> for CertificateJson {
+        fn from(c: Certificate) -> Self {
+            let hex_or_empty = |b: &[u8]| {
+                if b.is_empty() {
+                    String::new()
+                } else {
+                    hex::encode(b)
+                }
+            };
+            let (data_hex, data_base64) = if c.data.is_empty() {
+                (String::new(), String::new())
+            } else {
+                (hex::encode(&c.data), b64(&c.data))
+            };
+            Self {
+                data_hex,
+                data_base64,
+                type_: c.type_,
+                encoding: c.encoding,
+                print_name: c.print_name,
+                subject_hex: hex_or_empty(&c.subject),
+                issuer_hex: hex_or_empty(&c.issuer),
+                serial_hex: hex_or_empty(&c.serial),
+            }
+        }
+    }
+}
+
+#[cfg(all(test, feature = "serde"))]
+mod tests {
+    #![allow(
+        clippy::unwrap_used,
+        clippy::expect_used,
+        clippy::panic,
+        clippy::indexing_slicing,
+        clippy::missing_panics_doc
+    )]
+
+    use super::{Certificate, GenericPassword};
+
+    #[test]
+    fn generic_password_json_is_go_compatible() {
+        let gp = GenericPassword {
+            account: "admin".to_owned(),
+            password: Some(b"password#123".to_vec()),
+            ..Default::default()
+        };
+        let v = serde_json::to_value(gp).unwrap();
+        assert_eq!(v["account"], "admin");
+        assert_eq!(v["password"], "password#123");
+        assert_eq!(v["hex_password"], "70617373776f726423313233");
+        assert_eq!(v["base64_password"], "cGFzc3dvcmQjMTIz");
+    }
+
+    #[test]
+    fn empty_password_omits_encoding_fields() {
+        let gp = GenericPassword {
+            account: "a".to_owned(),
+            ..Default::default()
+        };
+        let v = serde_json::to_value(gp).unwrap();
+        assert!(v.get("password").is_none());
+        assert!(v.get("hex_password").is_none());
+        assert!(v.get("base64_password").is_none());
+    }
+
+    #[test]
+    fn certificate_json_uses_hex_blobs() {
+        let c = Certificate {
+            data: vec![0x30, 0x82],
+            subject: vec![0xAB],
+            ..Default::default()
+        };
+        let v = serde_json::to_value(c).unwrap();
+        assert_eq!(v["data_hex"], "3082");
+        assert_eq!(v["subject_hex"], "ab");
+    }
 }

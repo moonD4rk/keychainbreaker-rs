@@ -1,146 +1,140 @@
-//! Unlock options and master-key derivation for [`Keychain`].
+//! Unlock credentials and master-key derivation for [`Keychain`].
 
 use std::collections::HashMap;
 
 use crate::crypto::{generate_master_key, kc_decrypt, keyblob_decrypt, KEY_LENGTH};
 use crate::error::{Error, Result};
-use crate::keychain::{Keychain, KEY_LIST_INDEX_LEN};
+use crate::keychain::{KeyList, Keychain, State, KEY_LIST_INDEX_LEN};
 use crate::parse::{parse_key_blob, KEY_BLOB_LEN, KEY_BLOB_MAGIC, SECURE_STORAGE_GROUP};
 use crate::record::parse_record;
 use crate::tables;
 
-/// Credentials passed to [`Keychain::unlock`] / [`Keychain::try_unlock`].
+/// A credential for [`Keychain::unlock`] / [`Keychain::try_unlock`].
 ///
-/// Construct via [`UnlockOptions::with_password`] or
-/// [`UnlockOptions::with_key`]. [`UnlockOptions::default`] carries no
-/// credential and is only useful with [`Keychain::try_unlock`] (where it
-/// flips the keychain into partial-extraction mode).
-///
-/// An empty-string password is distinct from "no password": the empty
-/// string is a legitimate unlock attempt that still goes through PBKDF2.
-#[derive(Debug, Clone, Default)]
-pub struct UnlockOptions {
-    password: Option<String>,
-    hex_key: Option<String>,
+/// Exactly one of the two unlock paths is representable — there is no "empty"
+/// or "both" state to guard against. Hex-string parsing of a recovered key is
+/// the caller's job; the library takes the raw 24-byte 3DES master key.
+#[derive(Clone)]
+pub enum Credential {
+    /// A keychain password, run through PBKDF2-HMAC-SHA1 with the per-file salt.
+    /// The empty string is a valid attempt.
+    Password(String),
+
+    /// A recovered 24-byte master key (the one [`Keychain::password_hash`] is
+    /// derived from).
+    Key([u8; KEY_LENGTH]),
 }
 
-impl UnlockOptions {
-    /// Use a keychain password (will be run through PBKDF2-HMAC-SHA1
-    /// with the per-file salt). The empty string is a valid attempt.
+impl Credential {
+    /// Convenience constructor for a password credential from any string-like.
     #[must_use]
-    pub fn with_password<S: Into<String>>(password: S) -> Self {
-        Self {
-            password: Some(password.into()),
-            hex_key: None,
-        }
+    pub fn password(password: impl Into<String>) -> Self {
+        Self::Password(password.into())
     }
+}
 
-    /// Use a hex-encoded 24-byte master key (the one
-    /// [`Keychain::password_hash`] is derived from). Whitespace and a
-    /// leading `0x` are stripped.
-    #[must_use]
-    pub fn with_key<S: Into<String>>(hex_key: S) -> Self {
-        Self {
-            password: None,
-            hex_key: Some(hex_key.into()),
+impl core::fmt::Debug for Credential {
+    /// Never prints the secret material.
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        match self {
+            Self::Password(_) => f.write_str("Credential::Password(..)"),
+            Self::Key(_) => f.write_str("Credential::Key(..)"),
         }
     }
 }
 
 impl Keychain {
-    /// Decrypt the keychain using the provided credential. Leaves the
-    /// keychain locked on failure (so extraction methods return
-    /// [`Error::Locked`]).
+    /// Decrypt the keychain using `cred`. On failure the keychain is left
+    /// [`State::Locked`], so extraction methods return [`Error::Locked`].
     ///
-    /// Takes `UnlockOptions` by value to match the Go API and to make
-    /// the consumed credential explicit at the call site.
+    /// Takes the credential by value so it is consumed (and dropped) by the
+    /// unlock attempt rather than lingering at the call site.
     #[allow(clippy::needless_pass_by_value)]
-    pub fn unlock(&mut self, opts: UnlockOptions) -> Result<()> {
-        self.allow_partial = false;
-        self.do_unlock(&opts)
-    }
-
-    /// Attempt to decrypt; on failure, allow metadata-only extraction.
-    /// Calling with [`UnlockOptions::default()`] sets
-    /// `allow_partial = true` without attempting decryption (matches the
-    /// Go `kc.TryUnlock()` no-arg behaviour).
-    #[allow(clippy::needless_pass_by_value)]
-    pub fn try_unlock(&mut self, opts: UnlockOptions) -> Result<()> {
-        self.allow_partial = true;
-        if opts.password.is_none() && opts.hex_key.is_none() {
-            return Ok(());
+    pub fn unlock(&mut self, cred: Credential) -> Result<()> {
+        match self.compute_keys(&cred) {
+            Ok((db_key, key_list)) => {
+                self.state = State::Unlocked { db_key, key_list };
+                Ok(())
+            }
+            Err(e) => {
+                self.state = State::Locked;
+                Err(e)
+            }
         }
-        self.do_unlock(&opts)
     }
 
-    /// `true` once a successful [`Self::unlock`] or [`Self::try_unlock`]
-    /// has run. Independent of `allow_partial`.
+    /// Attempt to decrypt, but fall back to metadata-only extraction instead of
+    /// failing on a wrong credential.
+    ///
+    /// - `None` enables partial mode without attempting decryption.
+    /// - `Some(cred)` attempts a full unlock; a wrong password / key leaves the
+    ///   keychain in [`State::Partial`] and returns `Ok(())` (check
+    ///   [`Self::unlocked`] to tell full from partial). Only a structural
+    ///   problem (e.g. a corrupt table) returns `Err`.
+    pub fn try_unlock(&mut self, cred: Option<Credential>) -> Result<()> {
+        let Some(cred) = cred else {
+            self.state = State::Partial;
+            return Ok(());
+        };
+        match self.compute_keys(&cred) {
+            Ok((db_key, key_list)) => {
+                self.state = State::Unlocked { db_key, key_list };
+                Ok(())
+            }
+            Err(Error::WrongKey) => {
+                self.state = State::Partial;
+                Ok(())
+            }
+            Err(e) => {
+                self.state = State::Partial;
+                Err(e)
+            }
+        }
+    }
+
+    /// `true` once a [`Self::unlock`] / [`Self::try_unlock`] has fully decrypted
+    /// the database key. `false` in locked and partial states.
     #[must_use]
     pub const fn unlocked(&self) -> bool {
-        self.db_key.is_some()
+        matches!(self.state, State::Unlocked { .. })
     }
 
-    fn do_unlock(&mut self, opts: &UnlockOptions) -> Result<()> {
-        let master_key = derive_master_key(opts, &self.db_blob.salt)?;
-        let method = derive_method(opts);
-        let master_len = master_key.len();
+    /// Derive the master key, unwrap the database key, and build the per-record
+    /// key list. Pure with respect to `self` — the caller installs the result
+    /// into [`State`].
+    fn compute_keys(&self, cred: &Credential) -> Result<(Vec<u8>, KeyList)> {
+        let master_key = derive_master_key(cred, &self.db_blob.salt);
         self.logger.info(
             "master key derived",
-            &[("method", &method), ("keyLen", &master_len)],
+            &[
+                ("method", &derive_method(cred)),
+                ("keyLen", &master_key.len()),
+            ],
         );
 
         let db_key = find_wrapping_key(self, &master_key)?;
-        let db_key_len = db_key.len();
         self.logger
-            .info("DB key decrypted", &[("keyLen", &db_key_len)]);
+            .info("DB key decrypted", &[("keyLen", &db_key.len())]);
 
-        self.db_key = Some(db_key);
-        if let Err(e) = generate_key_list(self) {
-            self.db_key = None;
-            self.key_list.clear();
-            let err_msg = format!("{e}");
-            self.logger
-                .error("generate key list failed", &[("error", &err_msg)]);
-            return Err(e);
-        }
-        let key_count = self.key_list.len();
+        let key_list = generate_key_list(self, &db_key)?;
         self.logger
-            .info("key list generated", &[("keyCount", &key_count)]);
-        Ok(())
+            .info("key list generated", &[("keyCount", &key_list.len())]);
+        Ok((db_key, key_list))
     }
 }
 
-const fn derive_method(opts: &UnlockOptions) -> &'static str {
-    if opts.hex_key.is_some() {
-        "hex-key"
-    } else if opts.password.is_some() {
-        "PBKDF2-SHA1"
-    } else {
-        "none"
+const fn derive_method(cred: &Credential) -> &'static str {
+    match cred {
+        Credential::Key(_) => "hex-key",
+        Credential::Password(_) => "PBKDF2-SHA1",
     }
 }
 
-fn derive_master_key(opts: &UnlockOptions, salt: &[u8]) -> Result<Vec<u8>> {
-    if let Some(hex_key) = opts.hex_key.as_deref() {
-        return decode_hex_key(hex_key);
+fn derive_master_key(cred: &Credential, salt: &[u8]) -> [u8; KEY_LENGTH] {
+    match cred {
+        Credential::Key(key) => *key,
+        Credential::Password(password) => generate_master_key(password, salt),
     }
-    if let Some(password) = opts.password.as_deref() {
-        return Ok(generate_master_key(password, salt).to_vec());
-    }
-    Err(Error::NoCredential)
-}
-
-fn decode_hex_key(hex_key: &str) -> Result<Vec<u8>> {
-    let cleaned = hex_key.trim();
-    let cleaned = cleaned.strip_prefix("0x").unwrap_or(cleaned);
-    let bytes = hex::decode(cleaned)?;
-    if bytes.len() != KEY_LENGTH {
-        return Err(Error::ParseFailed(format!(
-            "unlock key must be {KEY_LENGTH} bytes, got {}",
-            bytes.len()
-        )));
-    }
-    Ok(bytes)
 }
 
 fn find_wrapping_key(kc: &Keychain, master: &[u8]) -> Result<Vec<u8>> {
@@ -167,7 +161,7 @@ fn find_wrapping_key(kc: &Keychain, master: &[u8]) -> Result<Vec<u8>> {
     Ok(plain.get(..KEY_LENGTH).ok_or(Error::WrongKey)?.to_vec())
 }
 
-fn generate_key_list(kc: &mut Keychain) -> Result<()> {
+fn generate_key_list(kc: &Keychain, db_key: &[u8]) -> Result<KeyList> {
     let sym_table = kc
         .tables_map
         .get(&tables::TABLE_SYMMETRIC_KEY)
@@ -176,8 +170,6 @@ fn generate_key_list(kc: &mut Keychain) -> Result<()> {
         .schema
         .for_table(tables::TABLE_SYMMETRIC_KEY)
         .ok_or_else(|| Error::ParseFailed("no schema for SymmetricKey table".into()))?;
-
-    let db_key = kc.db_key.as_deref().ok_or(Error::Locked)?;
 
     let mut key_list: HashMap<Vec<u8>, Vec<u8>> = HashMap::new();
     let mut skipped = 0_usize;
@@ -209,8 +201,7 @@ fn generate_key_list(kc: &mut Keychain) -> Result<()> {
     if key_list.is_empty() {
         return Err(Error::WrongKey);
     }
-    kc.key_list = key_list;
-    Ok(())
+    Ok(key_list)
 }
 
 fn extract_key_blob<'a>(rec: &crate::record::Record<'a>) -> Result<(Vec<u8>, &'a [u8], [u8; 8])> {
@@ -229,9 +220,8 @@ fn extract_key_blob<'a>(rec: &crate::record::Record<'a>) -> Result<(Vec<u8>, &'a
         )));
     }
 
-    // SSGP_MAGIC_OFFSET (8) past totalLength puts us at the "ssgp" tag
-    // that precedes the per-record key index (Apple's Secure Storage
-    // Group label).
+    // SSGP_MAGIC_OFFSET (8) past totalLength puts us at the "ssgp" tag that
+    // precedes the per-record key index (Apple's Secure Storage Group label).
     let ssgp_offset = (blob.total_length as usize).saturating_add(8);
     let magic_end = ssgp_offset.saturating_add(4);
     let ssgp_tag = data

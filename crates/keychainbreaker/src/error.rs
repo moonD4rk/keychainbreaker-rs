@@ -26,17 +26,9 @@ pub enum Error {
     #[error("keychain is locked")]
     Locked,
 
-    /// `Keychain::unlock` was called without a password or hex key.
-    #[error("no unlock credential provided")]
-    NoCredential,
-
     /// I/O error from reading the keychain file.
     #[error("io error: {0}")]
     Io(#[from] std::io::Error),
-
-    /// Hex decoding failed (e.g. malformed `UnlockOptions::with_key` input).
-    #[error("hex decode: {0}")]
-    Hex(#[from] hex::FromHexError),
 
     /// Low-level cipher or padding failure. Most callers should never see
     /// this directly; see [`Error::WrongKey`] for the unlock-time mapping.

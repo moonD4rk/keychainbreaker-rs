@@ -8,9 +8,9 @@
 //!
 //! What stays here:
 //!
-//! 1. `hash` byte-for-byte parity with the Go reference (RFC 003 § 11.1).
-//!    The library tests confirm `password_hash()` is correct; this one
-//!    confirms the CLI pipes that string to stdout unchanged.
+//! 1. `hash` byte-for-byte parity with the Go reference. The library tests
+//!    confirm `password_hash()` is correct; this one confirms the CLI pipes
+//!    that string to stdout unchanged.
 //! 2. `dump` swallowing `WrongKey` into a `(metadata only)` warning and
 //!    still exiting `0`. CLI-only logic — the library's `try_unlock`
 //!    surfaces the error as `Err(WrongKey)`.
@@ -59,6 +59,28 @@ fn hash_matches_go_reference_byte_for_byte() {
         .assert()
         .success()
         .stdout(format!("{EXPECTED_HASH}\n"));
+}
+
+#[test]
+fn dump_with_hex_key_and_0x_prefix_decrypts() {
+    let tmp = tempdir().unwrap();
+    let out = tmp.path().join("dump.json");
+    bin()
+        .arg("-f")
+        .arg(fixture_path())
+        .arg("-k")
+        .arg("0x4557eb716bbf20200945109cf3b884af9aca72e890e47c07")
+        .arg("-o")
+        .arg(&out)
+        .arg("dump")
+        .assert()
+        .success();
+
+    let contents = std::fs::read_to_string(&out).unwrap();
+    assert!(
+        contents.contains("password#123"),
+        "hex-key unlock (with 0x prefix) must decrypt the fixture"
+    );
 }
 
 #[test]

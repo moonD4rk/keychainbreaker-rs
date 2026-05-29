@@ -7,7 +7,7 @@ pub(crate) mod version;
 use std::path::PathBuf;
 
 use anyhow::Context;
-use keychainbreaker::{Error, Keychain, UnlockOptions};
+use keychainbreaker::{Credential, Keychain};
 
 use crate::cli::GlobalArgs;
 use crate::logger::CliLogger;
@@ -30,31 +30,38 @@ pub(crate) fn open_keychain(global: &GlobalArgs) -> anyhow::Result<(Keychain, Pa
     Ok((kc, path))
 }
 
-/// Resolve the unlock credential from `-k` > `-p` > interactive prompt
-/// and call [`Keychain::try_unlock`]. A `WrongKey` error is logged as a
-/// warning and swallowed, leaving the keychain in partial-extraction
-/// mode (matches Go's `openAndTryUnlock` semantics).
+/// Resolve the unlock credential from `-k` > `-p` > interactive prompt and call
+/// [`Keychain::try_unlock`]. A wrong key / password is not an error here: the
+/// keychain stays in partial-extraction mode and a warning is printed (matches
+/// Go's `openAndTryUnlock` semantics).
 pub(crate) fn try_unlock_with_credential(
     kc: &mut Keychain,
     global: &GlobalArgs,
 ) -> anyhow::Result<()> {
-    let opts = if let Some(key) = global.key.as_deref() {
-        UnlockOptions::with_key(key)
+    let cred = if let Some(key) = global.key.as_deref() {
+        Credential::Key(parse_master_key(key)?)
     } else if let Some(password) = global.password.as_deref() {
-        UnlockOptions::with_password(password)
+        Credential::password(password)
     } else {
-        let pw = read_password().context("failed to read password from terminal")?;
-        UnlockOptions::with_password(pw)
+        Credential::password(read_password().context("failed to read password from terminal")?)
     };
 
-    match kc.try_unlock(opts) {
-        Ok(()) => Ok(()),
-        Err(e) if matches!(e, Error::WrongKey) => {
-            eprintln!("Warning: {e}, exporting metadata only");
-            Ok(())
-        }
-        Err(e) => Err(e.into()),
+    kc.try_unlock(Some(cred))?;
+    if !kc.unlocked() {
+        eprintln!("Warning: wrong key or password, exporting metadata only");
     }
+    Ok(())
+}
+
+/// Decode a hex-encoded 24-byte master key, tolerating surrounding whitespace
+/// and a leading `0x`.
+fn parse_master_key(hex_key: &str) -> anyhow::Result<[u8; 24]> {
+    let cleaned = hex_key.trim();
+    let cleaned = cleaned.strip_prefix("0x").unwrap_or(cleaned);
+    let bytes = hex::decode(cleaned).context("master key is not valid hex")?;
+    bytes
+        .try_into()
+        .map_err(|b: Vec<u8>| anyhow::anyhow!("master key must be 24 bytes, got {}", b.len()))
 }
 
 fn default_keychain_path() -> anyhow::Result<PathBuf> {

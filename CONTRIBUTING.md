@@ -1,18 +1,12 @@
 # Contributing
 
-Thanks for considering a contribution. This project is an early-stage Rust port of <https://github.com/moond4rk/keychainbreaker>; the design is locked in by the RFC set under [`rfcs/`](rfcs/) and changes that diverge from it need discussion before code is written.
+Thanks for considering a contribution. This project is an early-stage Rust port of <https://github.com/moond4rk/keychainbreaker>.
 
 ## Before You Start
 
-1. **Find the relevant RFC.**
-   - Library API change: [`rfcs/002-library-api.md`](rfcs/002-library-api.md).
-   - CLI behavior change: [`rfcs/003-cli-design.md`](rfcs/003-cli-design.md).
-   - Test or CI change: [`rfcs/004-testing-and-verification.md`](rfcs/004-testing-and-verification.md).
-   - Cryptographic detail: [`rfcs/005-keychain-encryption.md`](rfcs/005-keychain-encryption.md) (copied from Go, do not edit here).
+1. **For non-trivial changes, open an issue first.** Anything that adds, removes, or reshapes the public API, changes a default, or alters CLI output should be discussed in an issue before the PR.
 
-2. **For non-trivial changes, open an issue first.** Anything that adds, removes, or reshapes the public API, changes a default, or alters CLI output should be discussed in an issue before the PR. We update the corresponding RFC in the same PR as the implementation.
-
-3. **Trivial changes are fine to PR directly** — typos, doc fixes, dependency bumps, small refactors.
+2. **Trivial changes are fine to PR directly** — typos, doc fixes, dependency bumps, small refactors.
 
 ## Development Workflow
 
@@ -39,7 +33,6 @@ CI runs the same gates on Ubuntu, macOS, and Windows.
 
 - **No `unsafe` code.** The workspace forbids it via the lint set.
 - **No `.unwrap()` / `.expect()` / `panic!()` in library code.** Bubble errors via `Result<T, Error>`. Tests are allowed to unwrap.
-- **No new public API without an RFC update.** A PR that adds a public function/type/option must update `rfcs/002-library-api.md` in the same commit.
 - **Match the Go library's behavior.** When in doubt, look at <https://github.com/moond4rk/keychainbreaker>. Same input → same output.
 - **Library does not depend on `clap`, `rpassword`, `serde_json`, or `anyhow`.** Those are CLI-only.
 - **Default to no comments.** Use self-documenting names. Add a comment only when the *why* is non-obvious.
