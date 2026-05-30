@@ -18,7 +18,7 @@ name = "keychainbreaker"
 path = "src/main.rs"
 
 [dependencies]
-keychainbreaker = { path = "../keychainbreaker", version = "0.1", features = [
+keychainbreaker = { path = "../keychainbreaker", version = "0.2", features = [
   "serde",
 ] }
 clap = { workspace = true }
