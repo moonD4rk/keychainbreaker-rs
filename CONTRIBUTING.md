@@ -1,6 +1,6 @@
 # Contributing
 
-Thanks for considering a contribution. This project is an early-stage Rust port of <https://github.com/moond4rk/keychainbreaker>.
+Thanks for considering a contribution. This project is a Rust port of <https://github.com/moond4rk/keychainbreaker>.
 
 ## Before You Start
 

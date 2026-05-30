@@ -1,8 +1,14 @@
 # keychainbreaker-rs
 
-Rust library and CLI for parsing and decrypting macOS Keychain files (`login.keychain-db`).
+[![CI](https://github.com/moonD4rk/keychainbreaker-rs/actions/workflows/ci.yml/badge.svg)](https://github.com/moonD4rk/keychainbreaker-rs/actions/workflows/ci.yml)
+[![crates.io](https://img.shields.io/crates/v/keychainbreaker.svg)](https://crates.io/crates/keychainbreaker)
+[![docs.rs](https://img.shields.io/docsrs/keychainbreaker)](https://docs.rs/keychainbreaker)
+[![codecov](https://codecov.io/gh/moonD4rk/keychainbreaker-rs/branch/main/graph/badge.svg)](https://codecov.io/gh/moonD4rk/keychainbreaker-rs)
+[![dependency status](https://deps.rs/repo/github/moonD4rk/keychainbreaker-rs/status.svg)](https://deps.rs/repo/github/moonD4rk/keychainbreaker-rs)
+[![License: Apache-2.0](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
+[![MSRV](https://img.shields.io/badge/MSRV-1.74-blue.svg)](https://blog.rust-lang.org/)
 
-**Status: early development (v0.1.0 pre-release).** The API is still being refined for idiomatic Rust ahead of the first release.
+Rust library and CLI for parsing and decrypting macOS Keychain files (`login.keychain-db`).
 
 This is a Rust port of the Go library at <https://github.com/moond4rk/keychainbreaker>. The encryption mechanics are identical; this repository tracks Go upstream for crypto correctness and re-defines the surface for idiomatic Rust ergonomics.
 
@@ -19,6 +25,13 @@ This is a Rust port of the Go library at <https://github.com/moond4rk/keychainbr
 |---|---|
 | [`keychainbreaker`](crates/keychainbreaker/) | The library. Pure Rust, no `unsafe`, no platform-specific code. MSRV 1.74. |
 | [`keychainbreaker-cli`](crates/keychainbreaker-cli/) | The `keychainbreaker` binary with `dump`, `hash`, and `version` subcommands. MSRV 1.78. |
+
+## Installation
+
+```bash
+cargo add keychainbreaker            # add the library to your project
+cargo install keychainbreaker-cli    # install the `keychainbreaker` binary
+```
 
 ## Quick Start
 
@@ -40,7 +53,7 @@ for entry in kc.generic_passwords()? {
 Record types are serializable through the default-on `serde` feature. Turn it off if you only need decryption:
 
 ```toml
-keychainbreaker = { version = "0.1", default-features = false }
+keychainbreaker = { version = "0.2", default-features = false }
 ```
 
 ### CLI
