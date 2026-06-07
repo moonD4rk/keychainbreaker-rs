@@ -121,6 +121,9 @@ jobs:
   coverage:
     name: Coverage
     runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
     steps:
       - uses: actions/checkout@v6
       - uses: dtolnay/rust-toolchain@stable
@@ -135,7 +138,7 @@ jobs:
       - name: Upload to Codecov
         uses: codecov/codecov-action@v6
         with:
-          token: ${{ secrets.CODECOV_TOKEN }}
+          use_oidc: true
           files: lcov.info
-          fail_ci_if_error: false
+          fail_ci_if_error: true
           flags: unittests
