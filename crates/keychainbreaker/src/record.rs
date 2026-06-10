@@ -13,7 +13,7 @@ use time::macros::format_description;
 use time::{OffsetDateTime, PrimitiveDateTime};
 
 use crate::error::{Error, Result};
-use crate::parse::{read_u32, slice, ATOM_SIZE};
+use crate::parse::{ATOM_SIZE, read_u32, slice};
 use crate::schema::TableSchema;
 
 /// Number of fixed `u32` fields ahead of the per-attribute offsets:
@@ -185,16 +185,13 @@ fn trim_trailing_nulls(s: &[u8]) -> &[u8] {
 
 #[cfg(test)]
 mod tests {
-    #![allow(
-        clippy::unwrap_used,
+    #![expect(
         clippy::expect_used,
-        clippy::panic,
-        clippy::indexing_slicing,
-        clippy::missing_panics_doc
+        reason = "test code uses direct expect assertions"
     )]
 
     use super::*;
-    use crate::schema::{AttrDef, ATTR_FORMAT_STRING, ATTR_FORMAT_UINT32};
+    use crate::schema::{ATTR_FORMAT_STRING, ATTR_FORMAT_UINT32, AttrDef};
 
     fn schema_with(names: &[&str]) -> TableSchema {
         let attrs = names

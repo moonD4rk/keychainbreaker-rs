@@ -21,10 +21,14 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
-      - uses: dtolnay/rust-toolchain@stable
+      # rustfmt.toml uses nightly-only options (group_imports,
+      # imports_granularity); only formatting needs nightly — the crates
+      # still build and test on stable. `+nightly` overrides the stable
+      # pin in rust-toolchain.toml.
+      - uses: dtolnay/rust-toolchain@nightly
         with:
           components: rustfmt
-      - run: cargo fmt --all --check
+      - run: cargo +nightly fmt --all --check
 
   clippy:
     name: Clippy
@@ -59,26 +63,17 @@ jobs:
       - uses: Swatinem/rust-cache@v2
       - run: cargo build -p keychainbreaker --no-default-features
 
-  msrv-lib:
-    name: MSRV library (1.74)
+  msrv:
+    name: MSRV (1.88)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
-      - uses: dtolnay/rust-toolchain@1.74
+      - uses: dtolnay/rust-toolchain@1.88
       - uses: Swatinem/rust-cache@v2
-      - name: Build with MSRV
-        run: cargo build -p keychainbreaker
-      - name: Build with MSRV, no default features
+      - name: Build workspace on MSRV
+        run: cargo build --workspace
+      - name: Build library on MSRV, no default features
         run: cargo build -p keychainbreaker --no-default-features
-
-  msrv-cli:
-    name: MSRV CLI (1.78)
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v6
-      - uses: dtolnay/rust-toolchain@1.78
-      - uses: Swatinem/rust-cache@v2
-      - run: cargo build -p keychainbreaker-cli
 
   deny:
     name: cargo deny

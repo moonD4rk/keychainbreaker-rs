@@ -13,10 +13,10 @@ use crate::crypto::{kc_decrypt, private_key_decrypt};
 use crate::error::{Error, Result};
 use crate::logger::Logger;
 use crate::parse::{
-    parse_key_blob, parse_ssgp, DbBlob, TableHeader, KEY_BLOB_LEN, KEY_BLOB_MAGIC,
-    SECURE_STORAGE_GROUP,
+    DbBlob, KEY_BLOB_LEN, KEY_BLOB_MAGIC, SECURE_STORAGE_GROUP, TableHeader, parse_key_blob,
+    parse_ssgp,
 };
-use crate::record::{parse_record, Record};
+use crate::record::{Record, parse_record};
 use crate::schema::DbSchema;
 use crate::tables;
 use crate::types::{Certificate, GenericPassword, InternetPassword, PrivateKey};

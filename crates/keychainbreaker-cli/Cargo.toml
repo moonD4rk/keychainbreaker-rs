@@ -3,10 +3,9 @@ name = "keychainbreaker-cli"
 description = "Command-line tool to extract credentials from macOS Keychain files."
 keywords = ["macos", "keychain", "forensics", "cli"]
 categories = ["command-line-utilities", "cryptography"]
-rust-version = "1.78"
-
 version = { workspace = true }
 edition = { workspace = true }
+rust-version = { workspace = true }
 license = { workspace = true }
 authors = { workspace = true }
 repository = { workspace = true }

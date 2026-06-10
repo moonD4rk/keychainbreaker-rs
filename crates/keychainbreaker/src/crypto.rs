@@ -3,13 +3,14 @@
 //! All primitives are crate-private and exposed only through the public
 //! `Keychain` unlock and extraction methods.
 
-// The reverse-buffer loop in `keyblob_decrypt` indexes into bounds-checked
-// fixed-size arrays where the bounds are obvious by inspection; the lint
-// can't see that, so allow it here only.
-#![allow(clippy::indexing_slicing)]
+#![expect(
+    clippy::indexing_slicing,
+    reason = "keyblob_decrypt indexes fixed-size arrays with inspection-obvious bounds"
+)]
 
-use cbc::cipher::{block_padding::Pkcs7, BlockModeDecrypt, KeyIvInit};
 use cbc::Decryptor;
+use cbc::cipher::block_padding::Pkcs7;
+use cbc::cipher::{BlockModeDecrypt, KeyIvInit};
 use des::TdesEde3;
 use sha1::Sha1;
 
@@ -38,7 +39,7 @@ pub(crate) fn kc_decrypt(key: &[u8], iv: &[u8], data: &[u8]) -> Result<Vec<u8>> 
     if data.is_empty() {
         return Err(Error::Cipher("ciphertext is empty"));
     }
-    if data.len() % BLOCK_SIZE != 0 {
+    if !data.len().is_multiple_of(BLOCK_SIZE) {
         return Err(Error::Cipher("ciphertext not aligned to 8-byte block"));
     }
     if key.len() != KEY_LENGTH {
@@ -107,16 +108,17 @@ pub(crate) fn generate_master_key(password: &str, salt: &[u8]) -> [u8; KEY_LENGT
 
 #[cfg(test)]
 mod tests {
-    #![allow(
+    #![expect(
         clippy::unwrap_used,
-        clippy::expect_used,
         clippy::panic,
-        clippy::missing_panics_doc
+        reason = "test code uses direct unwrap and panic assertions"
     )]
 
-    use super::*;
-    use cbc::cipher::{block_padding::Pkcs7 as Pkcs7Pad, BlockModeEncrypt};
     use cbc::Encryptor;
+    use cbc::cipher::BlockModeEncrypt;
+    use cbc::cipher::block_padding::Pkcs7 as Pkcs7Pad;
+
+    use super::*;
 
     type TripleDesCbcEnc = Encryptor<TdesEde3>;
 

@@ -8,10 +8,9 @@
 //! historical `password`/`hex_password`/`base64_password` shape without the
 //! struct carrying redundant copies.
 
-use time::OffsetDateTime;
-
 #[cfg(feature = "serde")]
 use serde::Serialize;
+use time::OffsetDateTime;
 
 /// A generic password record (services, applications, custom items).
 #[derive(Debug, Clone, Default)]
@@ -383,12 +382,10 @@ mod json {
 
 #[cfg(all(test, feature = "serde"))]
 mod tests {
-    #![allow(
+    #![expect(
         clippy::unwrap_used,
-        clippy::expect_used,
-        clippy::panic,
         clippy::indexing_slicing,
-        clippy::missing_panics_doc
+        reason = "test code uses direct unwrap and index assertions"
     )]
 
     use super::{Certificate, GenericPassword};

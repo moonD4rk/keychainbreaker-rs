@@ -2,14 +2,11 @@
 //! Go reference's `keychainbreaker_test.go`. Expected plaintext values
 //! come from the fixture's known content.
 
-#![allow(
+#![expect(
     clippy::unwrap_used,
     clippy::expect_used,
-    clippy::panic,
     clippy::indexing_slicing,
-    clippy::missing_panics_doc,
-    clippy::missing_errors_doc,
-    let_underscore_drop
+    reason = "test code uses direct unwrap, expect, and index assertions"
 )]
 
 use keychainbreaker::{Credential, Error, Keychain};

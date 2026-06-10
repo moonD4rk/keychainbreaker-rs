@@ -1,10 +1,11 @@
 [workspace]
-resolver = "2"
+resolver = "3"
 members = ["crates/*"]
 
 [workspace.package]
 version = "0.2.0"
-edition = "2021"
+edition = "2024"
+rust-version = "1.88"
 license = "Apache-2.0"
 authors = ["moonD4rk"]
 repository = "https://github.com/moonD4rk/keychainbreaker-rs"
@@ -99,6 +100,13 @@ mem_forget = "deny"
 get_unwrap = "deny"
 exit = "warn"
 indexing_slicing = "warn"
+
+# Attribute hygiene: prefer `#[expect]` over `#[allow]` so stale suppressions
+# self-report, and require a reason on every suppression.
+allow_attributes = "deny"
+allow_attributes_without_reason = "deny"
+# Catch accidental use of std APIs newer than the declared `rust-version`.
+incompatible_msrv = "deny"
 
 # Pedantic / cargo lints that are too noisy in practice. Documented allows
 # rather than silent skips so future contributors see them.

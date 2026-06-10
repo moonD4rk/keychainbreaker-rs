@@ -13,7 +13,12 @@
 //! kc.unlock(Credential::password("hunter2"))?;
 //! for entry in kc.generic_passwords()? {
 //!     if let Some(pw) = &entry.password {
-//!         println!("{}@{}: {}", entry.account, entry.service, String::from_utf8_lossy(pw));
+//!         println!(
+//!             "{}@{}: {}",
+//!             entry.account,
+//!             entry.service,
+//!             String::from_utf8_lossy(pw)
+//!         );
 //!     }
 //! }
 //! # Ok(())

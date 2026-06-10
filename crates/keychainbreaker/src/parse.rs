@@ -82,10 +82,19 @@ pub(crate) fn read_array<const N: usize>(
 pub(crate) struct Header {
     pub(crate) signature: [u8; 4],
     pub(crate) version: u32,
-    #[allow(dead_code)] // present for parity with the file format; tests assert against it
+    #[cfg_attr(
+        not(test),
+        expect(
+            dead_code,
+            reason = "parity with the file format; tests assert against it"
+        )
+    )]
     pub(crate) inner_size: u32,
     pub(crate) schema_off: u32,
-    #[allow(dead_code)] // unused by the read-only parser; preserved for fidelity
+    #[expect(
+        dead_code,
+        reason = "unused by the read-only parser; preserved for fidelity"
+    )]
     pub(crate) auth_off: u32,
 }
 
@@ -106,7 +115,10 @@ pub(crate) fn parse_header(buf: &[u8]) -> Result<Header> {
 /// the file header.
 #[derive(Debug, Clone)]
 pub(crate) struct SchemaIndex {
-    #[allow(dead_code)] // self-reported schema size; preserved for fidelity
+    #[expect(
+        dead_code,
+        reason = "self-reported schema size; preserved for fidelity"
+    )]
     pub(crate) schema_size: u32,
     pub(crate) table_offsets: Vec<u32>,
 }
@@ -133,7 +145,10 @@ pub(crate) fn parse_schema(buf: &[u8], offset: u32) -> Result<SchemaIndex> {
 #[derive(Debug, Clone)]
 pub(crate) struct TableHeader {
     pub(crate) table_id: u32,
-    #[allow(dead_code)] // self-reported count; `record_offsets.len()` is the live value
+    #[expect(
+        dead_code,
+        reason = "self-reported count; record_offsets.len() is the live value"
+    )]
     pub(crate) record_count: u32,
     pub(crate) record_offsets: Vec<u32>,
     /// Absolute offset of this table in the keychain buffer.
@@ -249,12 +264,12 @@ pub(crate) fn parse_key_blob(buf: &[u8]) -> Result<KeyBlob> {
 
 #[cfg(test)]
 mod tests {
-    #![allow(
+    #![expect(
         clippy::unwrap_used,
         clippy::expect_used,
         clippy::panic,
         clippy::indexing_slicing,
-        clippy::missing_panics_doc
+        reason = "test code uses direct unwrap, expect, panic, and index assertions"
     )]
 
     use super::*;
@@ -313,11 +328,11 @@ mod tests {
                 continue;
             }
             let abs = HEADER_SIZE + *off as usize;
-            if let Ok(t) = parse_table(FIXTURE, abs) {
-                if t.table_id == crate::tables::TABLE_METADATA {
-                    meta_base = Some(t.base_offset);
-                    break;
-                }
+            if let Ok(t) = parse_table(FIXTURE, abs)
+                && t.table_id == crate::tables::TABLE_METADATA
+            {
+                meta_base = Some(t.base_offset);
+                break;
             }
         }
         let base = meta_base.expect("metadata table missing");

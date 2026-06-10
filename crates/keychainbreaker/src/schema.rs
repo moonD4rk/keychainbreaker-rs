@@ -19,22 +19,46 @@ use crate::tables;
 /// Attribute format codes from Apple's CSSM framework. Only `UINT32` is
 /// load-bearing today (used by the bootstrap schemas); the rest are kept
 /// for fidelity and as documentation of the on-disk encoding.
-#[allow(dead_code)]
+#[cfg_attr(
+    not(test),
+    expect(
+        dead_code,
+        reason = "non-load-bearing CSSM format code; used only in tests"
+    )
+)]
 pub(crate) const ATTR_FORMAT_STRING: u32 = 0;
-#[allow(dead_code)]
+#[expect(
+    dead_code,
+    reason = "non-load-bearing CSSM format code; kept for fidelity"
+)]
 pub(crate) const ATTR_FORMAT_SINT32: u32 = 1;
 pub(crate) const ATTR_FORMAT_UINT32: u32 = 2;
-#[allow(dead_code)]
+#[expect(
+    dead_code,
+    reason = "non-load-bearing CSSM format code; kept for fidelity"
+)]
 pub(crate) const ATTR_FORMAT_TIME_DATE: u32 = 5;
-#[allow(dead_code)]
+#[cfg_attr(
+    not(test),
+    expect(
+        dead_code,
+        reason = "non-load-bearing CSSM format code; used only in tests"
+    )
+)]
 pub(crate) const ATTR_FORMAT_BLOB: u32 = 6;
-#[allow(dead_code)]
+#[expect(
+    dead_code,
+    reason = "non-load-bearing CSSM format code; kept for fidelity"
+)]
 pub(crate) const ATTR_FORMAT_MULTI_UINT: u32 = 7;
 
 #[derive(Debug, Clone)]
 pub(crate) struct AttrDef {
     pub(crate) name: String,
-    #[allow(dead_code)] // discovered for fidelity; the readers infer the format from the call site
+    #[expect(
+        dead_code,
+        reason = "discovered for fidelity; readers infer the format from the call site"
+    )]
     pub(crate) format: u32,
 }
 
@@ -43,7 +67,10 @@ pub(crate) struct AttrDef {
 /// lazy-init pattern Go uses.
 #[derive(Debug, Clone)]
 pub(crate) struct TableSchema {
-    #[allow(dead_code)] // identifying tag; consumers look schemas up by table id externally
+    #[expect(
+        dead_code,
+        reason = "identifying tag; consumers look schemas up by table id externally"
+    )]
     pub(crate) table_id: u32,
     pub(crate) attrs: Vec<AttrDef>,
     indexes: HashMap<String, usize>,
@@ -193,16 +220,14 @@ pub(crate) fn try_fourcc_from(v: u32) -> Option<String> {
 
 #[cfg(test)]
 mod tests {
-    #![allow(
+    #![expect(
         clippy::unwrap_used,
         clippy::expect_used,
-        clippy::panic,
-        clippy::indexing_slicing,
-        clippy::missing_panics_doc
+        reason = "test code uses direct unwrap and expect assertions"
     )]
 
     use super::*;
-    use crate::parse::{parse_header, parse_schema, parse_table, HEADER_SIZE};
+    use crate::parse::{HEADER_SIZE, parse_header, parse_schema, parse_table};
 
     const FIXTURE: &[u8] = include_bytes!("../tests/data/test.keychain-db");
 
