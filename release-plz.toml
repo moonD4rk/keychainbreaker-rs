@@ -1,0 +1,7 @@
+# release-plz configuration — https://release-plz.dev/docs/config
+#
+# Release notes live only in the GitHub Release; no CHANGELOG.md is committed.
+[workspace]
+changelog_update = false
+git_release_enable = true
+git_release_body = "{{ changelog }}"

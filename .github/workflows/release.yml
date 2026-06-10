@@ -1,31 +1,27 @@
-name: Release-plz
-
-# Release automation via release-plz (was a tag-triggered publish). On every
-# push to main, release-plz opens (or updates) a "Release PR" that bumps the
-# workspace version and writes the changelog from conventional commits.
-# Merging that PR makes the `release` job publish both crates to crates.io via
-# OIDC Trusted Publishing, push the git tag, and create the GitHub Release.
-#
-# crates.io Trusted Publishing must be configured for BOTH `keychainbreaker`
-# and `keychainbreaker-cli` with: Repository moonD4rk/keychainbreaker-rs,
-# Workflow release.yml, environment empty (this workflow uses none).
+name: Release
 
 on:
+  workflow_dispatch:
   push:
     branches: [main]
 
 jobs:
-  # Maintains the Release PR. Runs on every push but only touches the PR.
   release-pr:
     name: Release PR
+    if: github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     permissions:
       contents: write
       pull-requests: write
     concurrency:
-      group: release-plz-${{ github.ref }}
+      group: release-pr-${{ github.ref }}
       cancel-in-progress: false
     steps:
+      - uses: actions/create-github-app-token@v3
+        id: app-token
+        with:
+          app-id: ${{ secrets.RELEASE_APP_ID }}
+          private-key: ${{ secrets.RELEASE_APP_PRIVATE_KEY }}
       - uses: actions/checkout@v6
         with:
           fetch-depth: 0
@@ -35,12 +31,11 @@ jobs:
         with:
           command: release-pr
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ steps.app-token.outputs.token }}
 
-  # Publishes when a crate's version in Cargo.toml is not yet on crates.io
-  # (i.e. right after a Release PR merges). A no-op on ordinary pushes.
-  release:
-    name: Release
+  publish:
+    name: Publish
+    if: github.event_name == 'push'
     runs-on: ubuntu-latest
     permissions:
       contents: write
