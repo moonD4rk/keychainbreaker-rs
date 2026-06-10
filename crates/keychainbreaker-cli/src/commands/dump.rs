@@ -3,7 +3,7 @@
 use std::path::PathBuf;
 
 use crate::cli::GlobalArgs;
-use crate::output::{print_summary, write_json_file, DumpOutput};
+use crate::output::{DumpOutput, print_summary, write_json_file};
 
 const DEFAULT_OUTPUT_PATH: &str = "./keychain_dump.json";
 

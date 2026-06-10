@@ -1,7 +1,8 @@
 //! `clap` derive structs for the `keychainbreaker` binary.
 
-use clap::{Args, Parser, Subcommand};
 use std::path::PathBuf;
+
+use clap::{Args, Parser, Subcommand};
 
 #[derive(Parser, Debug)]
 #[command(

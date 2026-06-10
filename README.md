@@ -6,7 +6,7 @@
 [![codecov](https://codecov.io/gh/moonD4rk/keychainbreaker-rs/branch/main/graph/badge.svg)](https://codecov.io/gh/moonD4rk/keychainbreaker-rs)
 [![dependency status](https://deps.rs/repo/github/moonD4rk/keychainbreaker-rs/status.svg)](https://deps.rs/repo/github/moonD4rk/keychainbreaker-rs)
 [![License: Apache-2.0](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
-[![MSRV](https://img.shields.io/badge/MSRV-1.74-blue.svg)](https://blog.rust-lang.org/)
+[![MSRV](https://img.shields.io/badge/MSRV-1.88-blue.svg)](https://blog.rust-lang.org/)
 
 Rust library and CLI for parsing and decrypting macOS Keychain files (`login.keychain-db`).
 
@@ -23,8 +23,10 @@ This is a Rust port of the Go library at <https://github.com/moond4rk/keychainbr
 
 | Crate | Purpose |
 |---|---|
-| [`keychainbreaker`](crates/keychainbreaker/) | The library. Pure Rust, no `unsafe`, no platform-specific code. MSRV 1.74. |
-| [`keychainbreaker-cli`](crates/keychainbreaker-cli/) | The `keychainbreaker` binary with `dump`, `hash`, and `version` subcommands. MSRV 1.78. |
+| [`keychainbreaker`](crates/keychainbreaker/) | The library. Pure Rust, no `unsafe`, no platform-specific code. |
+| [`keychainbreaker-cli`](crates/keychainbreaker-cli/) | The `keychainbreaker` binary with `dump`, `hash`, and `version` subcommands. |
+
+Both crates are edition 2024, MSRV 1.88.
 
 ## Installation
 

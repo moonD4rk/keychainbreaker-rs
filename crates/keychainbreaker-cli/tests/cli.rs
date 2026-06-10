@@ -17,12 +17,11 @@
 //! 3. `version` smoke test — proves the binary launches and clap is
 //!    wired correctly.
 
-#![allow(
+#![expect(
     clippy::unwrap_used,
     clippy::expect_used,
-    clippy::panic,
-    clippy::missing_panics_doc,
-    unused_results
+    unused_results,
+    reason = "test code uses direct unwrap and expect, and ignores command Results"
 )]
 
 use std::path::PathBuf;

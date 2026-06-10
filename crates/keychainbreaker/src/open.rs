@@ -7,8 +7,8 @@ use crate::error::{Error, Result};
 use crate::keychain::Keychain;
 use crate::logger::{Logger, NopLogger};
 use crate::parse::{
-    parse_db_blob, parse_header, parse_schema, parse_table, DB_BLOB_SIZE, HEADER_SIZE,
-    KEYCHAIN_SIGNATURE, METADATA_OFFSET_ADJUSTMENT,
+    DB_BLOB_SIZE, HEADER_SIZE, KEYCHAIN_SIGNATURE, METADATA_OFFSET_ADJUSTMENT, parse_db_blob,
+    parse_header, parse_schema, parse_table,
 };
 use crate::schema::build_schema;
 use crate::tables;
@@ -133,7 +133,7 @@ fn parse_into_keychain(buf: Vec<u8>, logger: Box<dyn Logger>) -> Result<Keychain
     if &header.signature != KEYCHAIN_SIGNATURE {
         return Err(Error::InvalidSignature);
     }
-    let signature = format_args!(
+    let signature = format!(
         "{}{}{}{}",
         header.signature[0] as char,
         header.signature[1] as char,
@@ -191,8 +191,8 @@ fn parse_into_keychain(buf: Vec<u8>, logger: Box<dyn Logger>) -> Result<Keychain
         buf.get(blob_base_addr..blob_base_addr.saturating_add(DB_BLOB_SIZE))
             .ok_or_else(|| Error::ParseFailed("db blob slice out of bounds".into()))?,
     )?;
-    let magic = format_args!("0x{:08X}", db_blob.magic);
-    let blob_version = format_args!("0x{:08X}", db_blob.blob_version);
+    let magic = format!("0x{:08X}", db_blob.magic);
+    let blob_version = format!("0x{:08X}", db_blob.blob_version);
     let salt_len = db_blob.salt.len();
     let iv_len = db_blob.iv.len();
     let ciphertext_len = db_blob

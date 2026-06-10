@@ -2,10 +2,10 @@
 
 use std::collections::HashMap;
 
-use crate::crypto::{generate_master_key, kc_decrypt, keyblob_decrypt, KEY_LENGTH};
+use crate::crypto::{KEY_LENGTH, generate_master_key, kc_decrypt, keyblob_decrypt};
 use crate::error::{Error, Result};
-use crate::keychain::{KeyList, Keychain, State, KEY_LIST_INDEX_LEN};
-use crate::parse::{parse_key_blob, KEY_BLOB_LEN, KEY_BLOB_MAGIC, SECURE_STORAGE_GROUP};
+use crate::keychain::{KEY_LIST_INDEX_LEN, KeyList, Keychain, State};
+use crate::parse::{KEY_BLOB_LEN, KEY_BLOB_MAGIC, SECURE_STORAGE_GROUP, parse_key_blob};
 use crate::record::parse_record;
 use crate::tables;
 
@@ -49,7 +49,10 @@ impl Keychain {
     ///
     /// Takes the credential by value so it is consumed (and dropped) by the
     /// unlock attempt rather than lingering at the call site.
-    #[allow(clippy::needless_pass_by_value)]
+    #[expect(
+        clippy::needless_pass_by_value,
+        reason = "credential is consumed by the unlock attempt so it cannot linger at the call site"
+    )]
     pub fn unlock(&mut self, cred: Credential) -> Result<()> {
         match self.compute_keys(&cred) {
             Ok((db_key, key_list)) => {
