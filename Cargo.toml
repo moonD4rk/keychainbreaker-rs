@@ -58,7 +58,7 @@ x509-parser = "0.18"
 
 # Lints applied to every member crate (opt-in via `[lints] workspace = true`).
 # Strict baseline: `clippy::all` denied, `pedantic`/`nursery`/`cargo` warned,
-# CI treats warnings as errors. Test code carries `#![allow(...)]` overrides
+# CI treats warnings as errors. Test code carries `#![expect(...)]` overrides
 # at the file top (unwrap/expect/panic) per project convention.
 [workspace.lints.rust]
 unsafe_code = "forbid"

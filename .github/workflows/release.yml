@@ -2,6 +2,11 @@ name: Release
 
 on:
   workflow_dispatch:
+    inputs:
+      version:
+        description: "Version to release (e.g. 0.3.0)"
+        required: true
+        type: string
   push:
     branches: [main]
 
@@ -14,7 +19,7 @@ jobs:
       contents: write
       pull-requests: write
     concurrency:
-      group: release-pr-${{ github.ref }}
+      group: release-pr
       cancel-in-progress: false
     steps:
       - uses: actions/create-github-app-token@v3
@@ -23,15 +28,38 @@ jobs:
           app-id: ${{ secrets.RELEASE_APP_ID }}
           private-key: ${{ secrets.RELEASE_APP_PRIVATE_KEY }}
       - uses: actions/checkout@v6
-        with:
-          fetch-depth: 0
-          persist-credentials: false
       - uses: dtolnay/rust-toolchain@stable
-      - uses: release-plz/action@v0.5.130
-        with:
-          command: release-pr
+      - name: Validate version input
         env:
-          GITHUB_TOKEN: ${{ steps.app-token.outputs.token }}
+          VERSION: ${{ inputs.version }}
+        run: |
+          if [[ ! "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$ ]]; then
+            echo "::error::Invalid version '$VERSION' (expected semver, e.g. 0.3.0)"
+            exit 1
+          fi
+      - name: Install cargo-edit
+        run: cargo install cargo-edit --locked
+      - name: Set workspace version
+        env:
+          VERSION: ${{ inputs.version }}
+        run: cargo set-version --workspace "$VERSION"
+      - name: Sync lockfile and sanity-check
+        run: cargo check --workspace --all-features
+      - name: Open release PR
+        uses: peter-evans/create-pull-request@v8
+        with:
+          token: ${{ steps.app-token.outputs.token }}
+          branch: release/v${{ inputs.version }}
+          base: main
+          title: "chore: release ${{ inputs.version }}"
+          body: |
+            Release `${{ inputs.version }}`.
+
+            Bumps the workspace version and the CLI's dependency on the library.
+            Merging this PR triggers `publish`: the crates are published to
+            crates.io and a GitHub Release is created.
+          commit-message: "chore: release ${{ inputs.version }}"
+          delete-branch: true
 
   publish:
     name: Publish
