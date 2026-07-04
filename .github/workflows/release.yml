@@ -89,10 +89,13 @@ jobs:
           VERSION: ${{ inputs.version }}
         run: |
           git push origin "release/v${VERSION}"
+          prev=$(gh release list --limit 1 --json tagName --jq '.[0].tagName // ""')
+          notes=(--generate-notes)
+          [ -n "$prev" ] && notes+=(--notes-start-tag "$prev")
           gh release create "v${VERSION}" \
             --target "release/v${VERSION}" \
             --title "v${VERSION}" \
-            --generate-notes
+            "${notes[@]}"
 
       - name: Open PR to merge bump into main
         env:
