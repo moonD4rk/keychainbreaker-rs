@@ -1,0 +1,109 @@
+name: Lockfile refresh
+
+on:
+  schedule:
+    # Thursday, staggered off Dependabot's Monday run: this job re-resolves the
+    # whole graph and would otherwise race the per-crate PRs over Cargo.lock.
+    - cron: "0 6 * * 4"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: lockfile-refresh
+  cancel-in-progress: false
+
+env:
+  CARGO_TERM_COLOR: always
+  BRANCH: deps/lockfile-refresh
+
+jobs:
+  refresh:
+    name: Refresh Cargo.lock
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/create-github-app-token@v3
+        id: app-token
+        with:
+          client-id: ${{ vars.MOOND4RK_CI_RELEASE_APP_CLIENT_ID }}
+          private-key: ${{ secrets.MOOND4RK_CI_RELEASE_APP_PRIVATE_KEY }}
+
+      - uses: actions/checkout@v7
+        with:
+          token: ${{ steps.app-token.outputs.token }}
+          # --force-with-lease needs refs/remotes/origin/$BRANCH to exist, and a
+          # shallow checkout of main never fetches it: reruns fail on stale info.
+          fetch-depth: 0
+
+      - name: Resolve app bot identity
+        id: bot
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          APP_SLUG: ${{ steps.app-token.outputs.app-slug }}
+        run: |
+          user_id=$(gh api "/users/${APP_SLUG}[bot]" --jq .id)
+          {
+            echo "name=${APP_SLUG}[bot]"
+            echo "email=${user_id}+${APP_SLUG}[bot]@users.noreply.github.com"
+          } >> "$GITHUB_OUTPUT"
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - name: Update lockfile to latest compatible versions
+        # Overrides the workflow-level `always`: ANSI codes precede the leading
+        # whitespace and would break the summary grep below.
+        env:
+          CARGO_TERM_COLOR: never
+        # `shell: bash` for pipefail; the default `bash -e` would let tee mask a
+        # cargo failure and turn it into a silent no-op run.
+        shell: bash
+        run: cargo update 2>&1 | tee "$RUNNER_TEMP/cargo-update.log"
+
+      - name: Open or update pull request
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+        run: |
+          if git diff --quiet -- Cargo.lock; then
+            echo "Cargo.lock already up to date; nothing to do."
+            exit 0
+          fi
+
+          changes=$(grep -E '^[[:space:]]+(Locking|Updating|Adding|Removing|Downgrading) ' \
+            "$RUNNER_TEMP/cargo-update.log" | grep -v 'crates.io index' || true)
+          {
+            echo "Automated \`cargo update\` — refreshes the **entire** dependency graph,"
+            echo "including the transitive crates Dependabot never touches."
+            echo
+            echo "This is the backstop that catches an upstream **yank** (a transitive crate"
+            echo "pulled from crates.io) before it turns every open PR's \`cargo deny\` red."
+            echo "Safe to merge once CI is green."
+            echo
+            echo "<details><summary>Resolved changes</summary>"
+            echo
+            echo '```'
+            printf '%s\n' "${changes:-No per-crate lines captured; see the Cargo.lock diff.}"
+            echo '```'
+            echo
+            echo "</details>"
+          } > "$RUNNER_TEMP/pr-body.md"
+
+          git config user.name "${{ steps.bot.outputs.name }}"
+          git config user.email "${{ steps.bot.outputs.email }}"
+          git switch -C "$BRANCH"
+          git commit -m "deps: refresh Cargo.lock" -- Cargo.lock
+          git push --force-with-lease origin "$BRANCH"
+
+          pr_ref=$(gh pr list --head "$BRANCH" --state open --json number --jq '.[].number')
+          if [ -z "$pr_ref" ]; then
+            pr_ref=$(gh pr create \
+              --base main \
+              --head "$BRANCH" \
+              --title "deps: refresh Cargo.lock" \
+              --body-file "$RUNNER_TEMP/pr-body.md")
+          else
+            gh pr edit "$pr_ref" --body-file "$RUNNER_TEMP/pr-body.md"
+          fi
+          gh pr edit "$pr_ref" --add-label dependencies >/dev/null 2>&1 || true

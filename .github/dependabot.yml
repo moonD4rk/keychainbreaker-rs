@@ -49,3 +49,8 @@ updates:
       # nonsensical updates like `@1.88` -> `@1.100`. Ignore version
       # updates for this action.
       - dependency-name: "dtolnay/rust-toolchain"
+      # `taiki-e/install-action` is deliberately pinned to the floating `@v2`
+      # major tag. It ships ~20 releases a month, so pinning an exact patch
+      # would mean a bump PR nearly every workday for no safety gain: a version
+      # tag is mutable too, and real supply-chain pinning needs a commit SHA.
+      - dependency-name: "taiki-e/install-action"
